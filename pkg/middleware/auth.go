@@ -24,10 +24,11 @@ import (
 	"github.com/grafana/grafana/pkg/web"
 )
 
+// INFO: 授权参数
 type AuthOptions struct {
-	ReqGrafanaAdmin bool
-	ReqNoAnonynmous bool
-	ReqSignedIn     bool
+	ReqGrafanaAdmin bool // INFO: 表示需要管理员权限	
+	ReqNoAnonynmous bool // INFO: 表示不能匿名登录
+	ReqSignedIn     bool // INFO: 表示需要登录
 }
 
 func accessForbidden(c *contextmodel.ReqContext) {
@@ -278,6 +279,7 @@ func ReqNotSignedIn(c *contextmodel.ReqContext) {
 
 // NoAuth creates a middleware that doesn't require any authentication.
 // If forceLogin param is set it will redirect the user to the login page.
+// INFO: 表示不需要任何的授权
 func NoAuth() web.Handler {
 	return func(c *contextmodel.ReqContext) {
 		if shouldForceLogin(c) {

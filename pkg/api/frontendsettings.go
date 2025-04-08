@@ -99,6 +99,7 @@ func (hs *HTTPServer) GetFrontendSettings(c *contextmodel.ReqContext) {
 // getFrontendSettings returns a json object with all the settings needed for front end initialisation.
 //
 //nolint:gocyclo
+// INFO: 获取前端配置数据
 func (hs *HTTPServer) getFrontendSettings(c *contextmodel.ReqContext) (*dtos.FrontendSettingsDTO, error) {
 	c, span := hs.injectSpan(c, "api.getFrontendSettings")
 	defer span.End()

@@ -89,7 +89,7 @@ func newServer(opts Options, cfg *setting.Cfg, httpServer *api.HTTPServer, roleR
 type Server struct {
 	context          context.Context
 	shutdownFn       context.CancelFunc
-	childRoutines    *errgroup.Group
+	childRoutines    *errgroup.Group // INFO: 服务下的子协程
 	log              log.Logger
 	cfg              *setting.Cfg
 	shutdownOnce     sync.Once
@@ -136,6 +136,7 @@ func (s *Server) Init() error {
 
 // Run initializes and starts services. This will block until all services have
 // exited. To initiate shutdown, call the Shutdown method in another goroutine.
+// INFO: 启动服务
 func (s *Server) Run() error {
 	defer close(s.shutdownFinished)
 
@@ -153,6 +154,7 @@ func (s *Server) Run() error {
 
 		service := svc
 		serviceName := reflect.TypeOf(service).String()
+		// INFO: 单个服务作为一个协程启动
 		s.childRoutines.Go(func() error {
 			select {
 			case <-s.context.Done():

@@ -31,6 +31,7 @@ func main() {
 	os.Exit(0)
 }
 
+// INFO: 创建grafana命令行应用
 func MainApp() *cli.App {
 	app := &cli.App{
 		Name:  "grafana",
@@ -42,6 +43,7 @@ func MainApp() *cli.App {
 			},
 		},
 		Version: version,
+		// INFO: 支持两个子命令: cli和server
 		Commands: []*cli.Command{
 			gcli.CLICommand(version),
 			commands.ServerCommand(version, commit, enterpriseCommit, buildBranch, buildstamp),

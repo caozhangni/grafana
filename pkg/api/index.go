@@ -23,10 +23,12 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 )
 
+// INFO: 获取首页视图需要的数据
 func (hs *HTTPServer) setIndexViewData(c *contextmodel.ReqContext) (*dtos.IndexViewData, error) {
 	c, span := hs.injectSpan(c, "api.setIndexViewData")
 	defer span.End()
 
+	// INFO: 获取前端配置数据
 	settings, err := hs.getFrontendSettings(c)
 	if err != nil {
 		return nil, err
@@ -220,11 +222,13 @@ func (hs *HTTPServer) Index(c *contextmodel.ReqContext) {
 	c, span := hs.injectSpan(c, "api.Index")
 	defer span.End()
 
+	// INFO: 获取首页视图需要的数据
 	data, err := hs.setIndexViewData(c)
 	if err != nil {
 		c.Handle(hs.Cfg, http.StatusInternalServerError, "Failed to get settings", err)
 		return
 	}
+	// INFO: 渲染主页html模板并写入响应对象中
 	c.HTML(http.StatusOK, "index", data)
 }
 

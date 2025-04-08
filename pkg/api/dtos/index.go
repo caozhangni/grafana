@@ -6,9 +6,10 @@ import (
 	"github.com/grafana/grafana/pkg/services/navtree"
 )
 
+// INFO: 首页视图需要的数据
 type IndexViewData struct {
 	User                                *CurrentUser
-	Settings                            *FrontendSettingsDTO
+	Settings                            *FrontendSettingsDTO // INFO: 前端配置数据
 	AppUrl                              string
 	AppSubUrl                           string
 	GoogleAnalyticsId                   string

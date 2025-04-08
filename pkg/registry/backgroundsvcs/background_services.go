@@ -50,6 +50,8 @@ import (
 	"github.com/grafana/grafana/pkg/services/updatechecker"
 )
 
+// INFO: 注册后台服务
+// INFO: 是被依赖注入框架调用的
 func ProvideBackgroundServiceRegistry(
 	httpServer *api.HTTPServer, ng *ngalert.AlertNG, cleanup *cleanup.CleanUpService, live *live.GrafanaLive,
 	pushGateway *pushhttp.Gateway, notifications *notifications.NotificationService, pluginStore *pluginStore.Service,
@@ -118,6 +120,7 @@ func ProvideBackgroundServiceRegistry(
 }
 
 // BackgroundServiceRegistry provides background services.
+// INFO: 表示一个后台服务注册表
 type BackgroundServiceRegistry struct {
 	Services []registry.BackgroundService
 }
@@ -126,6 +129,7 @@ func NewBackgroundServiceRegistry(services ...registry.BackgroundService) *Backg
 	return &BackgroundServiceRegistry{services}
 }
 
+// INFO: 获取后台服务
 func (r *BackgroundServiceRegistry) GetServices() []registry.BackgroundService {
 	return r.Services
 }

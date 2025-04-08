@@ -25,6 +25,7 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 )
 
+// INFO: 创建server命令
 func ServerCommand(version, commit, enterpriseCommit, buildBranch, buildstamp string) *cli.Command {
 	return &cli.Command{
 		Name:  "server",
@@ -43,6 +44,7 @@ func ServerCommand(version, commit, enterpriseCommit, buildBranch, buildstamp st
 	}
 }
 
+// INFO: 运行server	
 func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 	if Version || VerboseVersion {
 		if opts.EnterpriseCommit != gcli.DefaultCommitValue && opts.EnterpriseCommit != "" {
@@ -93,6 +95,7 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 	checkPrivileges()
 
 	configOptions := strings.Split(ConfigOverrides, " ")
+	// INFO: 从命令行参数中创建配置对象
 	cfg, err := setting.NewCfgFromArgs(setting.CommandLineArgs{
 		Config:   ConfigFile,
 		HomePath: HomePath,
@@ -105,6 +108,7 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 
 	metrics.SetBuildInformation(metrics.ProvideRegisterer(), opts.Version, opts.Commit, opts.BuildBranch, getBuildstamp(opts))
 
+	// INFO: 初始化server对象
 	s, err := server.Initialize(
 		cfg,
 		server.Options{
@@ -121,6 +125,7 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 
 	ctx := context.Background()
 	go listenToSystemSignals(ctx, s)
+	// INFO: 启动服务
 	return s.Run()
 }
 

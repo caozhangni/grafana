@@ -267,9 +267,10 @@
     <div id="reactRoot"></div>
 
     <script nonce="[[.Nonce]]">
+      // INFO: 将首页视图需要的数据传递给前端
       window.grafanaBootData = {
         user: [[.User]],
-        settings: [[.Settings]],
+        settings: [[.Settings]], // INFO: 配置相关数据
         navTree: [[.NavTree]],
         assets: [[.Assets]]
       };

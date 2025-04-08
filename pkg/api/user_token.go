@@ -96,6 +96,7 @@ func (hs *HTTPServer) RotateUserAuthTokenRedirect(c *contextmodel.ReqContext) re
 	return response.Redirect(hs.Cfg.AppSubURL + redirectTo)
 }
 
+// INFO: 这个接口没有在swagger-ui中展示的原因是没有tag和id
 // swagger:route POST /user/auth-tokens/rotate
 //
 // # Rotate the auth token of the caller

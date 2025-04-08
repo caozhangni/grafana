@@ -54,6 +54,7 @@ const (
 const zoneInfo = "ZONEINFO"
 
 var (
+	// INFO: 自定义配置的文件路径	
 	customInitPath = "conf/custom.ini"
 
 	// App settings.
@@ -886,6 +887,7 @@ func (cfg *Cfg) loadSpecifiedConfigFile(configFile string, masterFile *ini.File)
 
 func (cfg *Cfg) loadConfiguration(args CommandLineArgs) (*ini.File, error) {
 	// load config defaults
+	// INFO: 加载默认配置文件(conf/defaults.ini)
 	defaultConfigFile := path.Join(cfg.HomePath, "conf/defaults.ini")
 	cfg.configFiles = append(cfg.configFiles, defaultConfigFile)
 
@@ -909,6 +911,7 @@ func (cfg *Cfg) loadConfiguration(args CommandLineArgs) (*ini.File, error) {
 	cfg.applyCommandLineDefaultProperties(commandLineProps, parsedFile)
 
 	// load specified config file
+	// INFO: 加载自定义配置文件(conf/custom.ini)
 	err = cfg.loadSpecifiedConfigFile(args.Config, parsedFile)
 	if err != nil {
 		err2 := cfg.initLogging(parsedFile)
@@ -1007,8 +1010,10 @@ func NewCfgWithFeatures(features func(string) bool) *Cfg {
 	return cfg
 }
 
+// INFO: 从命令行参数中创建配置对象
 func NewCfgFromArgs(args CommandLineArgs) (*Cfg, error) {
 	cfg := NewCfg()
+	// INFO: 加载ini配置文件到cfg对象中
 	if err := cfg.Load(args); err != nil {
 		return nil, err
 	}
@@ -1049,6 +1054,7 @@ func (cfg *Cfg) validateStaticRootPath() error {
 	return nil
 }
 
+// INFO: 加载ini配置文件到cfg对象中
 func (cfg *Cfg) Load(args CommandLineArgs) error {
 	cfg.setHomePath(args)
 
@@ -1060,6 +1066,7 @@ func (cfg *Cfg) Load(args CommandLineArgs) error {
 		}
 	}
 
+	// INFO: 加载ini配置文件
 	iniFile, err := cfg.loadConfiguration(args)
 	if err != nil {
 		return err

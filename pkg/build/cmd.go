@@ -78,6 +78,7 @@ func RunCmd() int {
 				clean(opts)
 			}
 
+			// INFO: 编译grafana二进制可执行文件
 			if err := doBuild("grafana", "./pkg/cmd/grafana", opts); err != nil {
 				log.Println(err)
 				return 1
@@ -88,6 +89,7 @@ func RunCmd() int {
 				clean(opts)
 			}
 
+			// INFO: 编译grafana-server二进制可执行文件
 			if err := doBuild("grafana-server", "./pkg/cmd/grafana-server", opts); err != nil {
 				log.Println(err)
 				return 1
@@ -95,6 +97,7 @@ func RunCmd() int {
 
 		case "build-cli":
 			clean(opts)
+			// INFO: 编译grafana-cli二进制可执行文件
 			if err := doBuild("grafana-cli", "./pkg/cmd/grafana-cli", opts); err != nil {
 				log.Println(err)
 				return 1

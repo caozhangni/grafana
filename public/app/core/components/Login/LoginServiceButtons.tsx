@@ -138,7 +138,9 @@ function getButtonStyleFor(service: LoginService, styles: ReturnType<typeof getS
 }
 
 export const LoginServiceButtons = () => {
+  // INFO: 过滤出允许的service
   const enabledServices = pickBy(loginServices(), (service) => service.enabled);
+  // INFO: 是否有允许的service
   const hasServices = Object.keys(enabledServices).length > 0;
   const theme = useTheme2();
   const styles = useStyles2(getServiceStyles);

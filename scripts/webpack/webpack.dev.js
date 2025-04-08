@@ -67,6 +67,7 @@ module.exports = (env = {}) => {
       // Note: order is bottom-to-top and/or right-to-left
       rules: [
         {
+          // INFO: 匹配.ts或者.tsx文件
           test: /\.tsx?$/,
           use: {
             loader: 'esbuild-loader',
@@ -104,7 +105,6 @@ module.exports = (env = {}) => {
         config: [__filename],
       },
     },
-
     plugins: [
       ...(parseInt(env.liveReload, 10)
         ? [

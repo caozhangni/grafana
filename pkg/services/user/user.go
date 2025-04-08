@@ -23,6 +23,7 @@ type Service interface {
 	GetSignedInUser(context.Context, *GetSignedInUserQuery) (*SignedInUser, error)
 	Search(context.Context, *SearchUsersQuery) (*SearchUserQueryResult, error)
 	BatchDisableUsers(context.Context, *BatchDisableUsersCommand) error
+	// INFO: 这里返回DTO的原因是该方法只有api层的跨层调用，且需要对返回的用户相关字段进行控制
 	GetProfile(context.Context, *GetUserProfileQuery) (*UserProfileDTO, error)
 }
 

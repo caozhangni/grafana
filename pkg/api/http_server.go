@@ -627,6 +627,8 @@ func (hs *HTTPServer) addMiddlewaresAndStaticRoutes() {
 		m.UseMiddleware(middleware.SubPathRedirect(hs.Cfg))
 	}
 
+	// INFO: 注册视图模板的路径
+	// INFO: 默认的StaticRootPath是public，所以views的路径是public/views
 	m.UseMiddleware(web.Renderer(filepath.Join(hs.Cfg.StaticRootPath, "views"), "[[", "]]"))
 
 	// These endpoints are used for monitoring the Grafana instance

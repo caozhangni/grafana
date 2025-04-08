@@ -55,10 +55,12 @@ NGALERT_SPEC_TARGET = pkg/services/ngalert/api/tooling/api.json
 $(NGALERT_SPEC_TARGET):
 	+$(MAKE) -C pkg/services/ngalert/api/tooling api.json
 
+# INFO: 合并开源版本和企业版本的swagger文件，并生成最终的swagger文件(public/api-merged.json)
 $(MERGED_SPEC_TARGET): swagger-oss-gen swagger-enterprise-gen $(NGALERT_SPEC_TARGET) $(SWAGGER) ## Merge generated and ngalert API specs
 	# known conflicts DsPermissionType, AddApiKeyCommand, Json, Duration (identical models referenced by both specs)
 	$(SWAGGER) mixin -q $(SPEC_TARGET) $(ENTERPRISE_SPEC_TARGET) $(NGALERT_SPEC_TARGET) --ignore-conflicts -o $(MERGED_SPEC_TARGET)
 
+# INFO: 生成开源版本的swagger文件(public/api-spec.json)
 .PHONY: swagger-oss-gen
 swagger-oss-gen: $(SWAGGER) ## Generate API Swagger specification
 	@echo "re-generating swagger for OSS"
@@ -72,6 +74,7 @@ swagger-oss-gen: $(SWAGGER) ## Generate API Swagger specification
 	--exclude-tag=enterprise
 
 # this file only exists if enterprise is enabled
+# INFO: 生成企业版本的swagger文件(public/api-enterprise-spec.json)
 .PHONY: swagger-enterprise-gen
 ENTERPRISE_EXT_FILE = pkg/extensions/ext.go
 ifeq ("$(wildcard $(ENTERPRISE_EXT_FILE))","") ## if enterprise is not enabled
@@ -90,6 +93,7 @@ swagger-enterprise-gen: $(SWAGGER) ## Generate API Swagger specification
 	--include-tag=enterprise
 endif
 
+# INFO: 生成swagger文件(public/api-merged.json), 并验证swagger文件
 .PHONY: swagger-gen
 swagger-gen: gen-go $(MERGED_SPEC_TARGET) swagger-validate
 
@@ -116,6 +120,7 @@ lefthook-uninstall: $(LEFTHOOK)
 ##@ OpenAPI 3
 OAPI_SPEC_TARGET = public/openapi3.json
 
+# INFO: 将swagger文件(public/api-merged.json)转换为OpenApi 3 specs(public/openapi3.json)
 .PHONY: openapi3-gen
 openapi3-gen: swagger-gen ## Generates OpenApi 3 specs from the Swagger 2 already generated
 	$(GO) run $(GO_RACE_FLAG) scripts/openapi3/openapi3conv.go $(MERGED_SPEC_TARGET) $(OAPI_SPEC_TARGET)
@@ -192,16 +197,19 @@ build-go-fast: gen-go ## Build all Go binaries.
 	@echo "build go files"
 	$(GO) run build.go $(GO_BUILD_FLAGS) build
 
+# INFO: 编译grafana二进制可执行文件
 .PHONY: build-backend
 build-backend: ## Build Grafana backend.
 	@echo "build backend"
 	$(GO) run build.go $(GO_BUILD_FLAGS) build-backend
 
+# INFO: 编译grafana-server二进制可执行文件
 .PHONY: build-server
 build-server: ## Build Grafana server.
 	@echo "build server"
 	$(GO) run build.go $(GO_BUILD_FLAGS) build-server
 
+# INFO: 编译grafana-cli二进制可执行文件
 .PHONY: build-cli
 build-cli: ## Build Grafana CLI application.
 	@echo "build grafana-cli"

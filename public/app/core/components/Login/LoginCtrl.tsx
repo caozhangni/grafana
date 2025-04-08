@@ -6,6 +6,7 @@ import { t } from 'app/core/internationalization';
 
 import { LoginDTO, AuthNRedirectDTO } from './types';
 
+// INFO: 判断是否启用了oauth
 const isOauthEnabled = () => {
   return !!config.oauth && Object.keys(config.oauth).length > 0;
 };

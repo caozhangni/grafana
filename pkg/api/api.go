@@ -60,10 +60,15 @@ var tracer = otel.Tracer("github.com/grafana/grafana/pkg/api")
 
 // registerRoutes registers all API HTTP routes.
 func (hs *HTTPServer) registerRoutes() {
+	// INFO: 表示不需要任何的授权
 	reqNoAuth := middleware.NoAuth()
+	// INFO: 表示需要登录
 	reqSignedIn := middleware.ReqSignedIn
+	// INFO: 表示不需要登录
 	reqNotSignedIn := middleware.ReqNotSignedIn
+	// INFO: 表示需要登录，但是不能匿名登录
 	reqSignedInNoAnonymous := middleware.ReqSignedInNoAnonymous
+	// INFO: 表示需要管理员权限
 	reqGrafanaAdmin := middleware.ReqGrafanaAdmin
 	reqOrgAdmin := middleware.ReqOrgAdmin
 	reqRoleForAppRoute := middleware.RoleAppPluginAuth(hs.AccessControl, hs.pluginStore, hs.Features, hs.log)
@@ -79,13 +84,19 @@ func (hs *HTTPServer) registerRoutes() {
 
 	// not logged in views
 	r.Get("/logout", hs.Logout)
+	// INFO: 登录接口（用户名和密码验证）
+	// INFO: 登录成功后会set grafana_session和grafana_session_expiry这两个cookie
 	r.Post("/login", requestmeta.SetOwner(requestmeta.TeamAuth), quota(string(auth.QuotaTargetSrv)), routing.Wrap(hs.LoginPost))
 	r.Get("/login/:name", quota(string(auth.QuotaTargetSrv)), hs.OAuthLogin)
 
+	// INFO: 登录页面
 	r.Get("/login", hs.LoginView)
 	r.Get("/invite/:code", hs.Index)
 
 	// authed views
+	// INFO: reqSignedIn中间件会检查是否已经登录
+	// INFO: 如果没有,会302重定向到/login登录页面
+	// INFO: 如果已经登录，则会返回主页
 	r.Get("/", reqSignedIn, hs.Index)
 	r.Get("/profile/", reqSignedInNoAnonymous, hs.Index)
 	r.Get("/profile/password", reqSignedInNoAnonymous, hs.Index)

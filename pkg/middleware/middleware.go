@@ -16,7 +16,9 @@ var (
 		ReqSignedIn:     true,
 		ReqGrafanaAdmin: true,
 	})
+	// INFO: 表示需要登录
 	ReqSignedIn            = Auth(&AuthOptions{ReqSignedIn: true})
+	// INFO: 表示需要登录，但是不能匿名登录
 	ReqSignedInNoAnonymous = Auth(&AuthOptions{ReqSignedIn: true, ReqNoAnonynmous: true})
 	ReqEditorRole          = RoleAuth(org.RoleEditor, org.RoleAdmin)
 	ReqOrgAdmin            = RoleAuth(org.RoleAdmin)
