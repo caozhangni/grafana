@@ -1,89 +1,174 @@
-import { css, cx } from '@emotion/css';
+import { isEqual } from 'lodash';
+import React from 'react';
 
-import { GrafanaTheme2 } from '@grafana/data';
-import { SceneObjectState, VizPanel, SceneObjectBase, SceneObject, SceneComponentProps } from '@grafana/scenes';
-import { Switch, useStyles2 } from '@grafana/ui';
+import {
+  CustomVariable,
+  LocalValueVariable,
+  MultiValueVariable,
+  sceneGraph,
+  SceneObjectBase,
+  SceneObjectState,
+  SceneVariableSet,
+  VariableDependencyConfig,
+  VariableValueSingle,
+  VizPanel,
+  VizPanelState,
+} from '@grafana/scenes';
 import { OptionsPaneCategoryDescriptor } from 'app/features/dashboard/components/PanelEditor/OptionsPaneCategoryDescriptor';
-import { OptionsPaneItemDescriptor } from 'app/features/dashboard/components/PanelEditor/OptionsPaneItemDescriptor';
 
-import { DashboardLayoutItem } from '../types';
+import { ConditionalRendering } from '../../conditional-rendering/ConditionalRendering';
+import { getCloneKey } from '../../utils/clone';
+import { getMultiVariableValues } from '../../utils/utils';
+import { scrollCanvasElementIntoView } from '../layouts-shared/scrollCanvasElementIntoView';
+import { DashboardLayoutItem } from '../types/DashboardLayoutItem';
+import { DashboardRepeatsProcessedEvent } from '../types/DashboardRepeatsProcessedEvent';
 
-export interface ResponsiveGridItemState extends SceneObjectState {
+import { getOptions } from './ResponsiveGridItemEditor';
+import { AutoGridItemRenderer } from './ResponsiveGridItemRenderer';
+import { AutoGridLayout } from './ResponsiveGridLayout';
+
+export interface AutoGridItemState extends SceneObjectState {
   body: VizPanel;
   hideWhenNoData?: boolean;
+  repeatedPanels?: VizPanel[];
+  variableName?: string;
+  isHidden?: boolean;
+  conditionalRendering?: ConditionalRendering;
 }
 
-export class ResponsiveGridItem extends SceneObjectBase<ResponsiveGridItemState> implements DashboardLayoutItem {
-  public constructor(state: ResponsiveGridItemState) {
-    super(state);
+export class AutoGridItem extends SceneObjectBase<AutoGridItemState> implements DashboardLayoutItem {
+  public static Component = AutoGridItemRenderer;
+
+  protected _variableDependency = new VariableDependencyConfig(this, {
+    variableNames: this.state.variableName ? [this.state.variableName] : [],
+    onVariableUpdateCompleted: () => this.performRepeat(),
+  });
+
+  public readonly isDashboardLayoutItem = true;
+  public containerRef = React.createRef<HTMLDivElement>();
+  private _prevRepeatValues?: VariableValueSingle[];
+
+  public constructor(state: AutoGridItemState) {
+    super({ ...state, conditionalRendering: state?.conditionalRendering ?? ConditionalRendering.createEmpty() });
     this.addActivationHandler(() => this._activationHandler());
   }
 
   private _activationHandler() {
-    if (!this.state.hideWhenNoData) {
+    if (this.state.variableName) {
+      this.performRepeat();
+    }
+
+    const deactivate = this.state.conditionalRendering?.activate();
+
+    return () => {
+      if (deactivate) {
+        deactivate();
+      }
+    };
+  }
+
+  public getOptions(): OptionsPaneCategoryDescriptor[] {
+    return getOptions(this);
+  }
+
+  public setElementBody(body: VizPanel): void {
+    this.setState({ body });
+  }
+
+  public performRepeat() {
+    if (!this.state.variableName || sceneGraph.hasVariableDependencyInLoadingState(this)) {
       return;
     }
-  }
 
-  public toggleHideWhenNoData() {
-    this.setState({ hideWhenNoData: !this.state.hideWhenNoData });
-  }
+    const variable =
+      sceneGraph.lookupVariable(this.state.variableName, this) ??
+      new CustomVariable({
+        name: '_____default_sys_repeat_var_____',
+        options: [],
+        value: '',
+        text: '',
+        query: 'A',
+      });
 
-  /**
-   * DashboardLayoutElement interface
-   */
-  public isDashboardLayoutItem: true = true;
-
-  public getOptions?(): OptionsPaneCategoryDescriptor {
-    const model = this;
-
-    const category = new OptionsPaneCategoryDescriptor({
-      title: 'Layout options',
-      id: 'layout-options',
-      isOpenDefault: false,
-    });
-
-    category.addItem(
-      new OptionsPaneItemDescriptor({
-        title: 'Hide when no data',
-        render: function renderTransparent() {
-          const { hideWhenNoData } = model.useState();
-          return <Switch value={hideWhenNoData} id="hide-when-no-data" onChange={() => model.toggleHideWhenNoData()} />;
-        },
-      })
-    );
-
-    return category;
-  }
-
-  public setBody(body: SceneObject): void {
-    if (body instanceof VizPanel) {
-      this.setState({ body });
+    if (!(variable instanceof MultiValueVariable)) {
+      console.error('DashboardGridItem: Variable is not a MultiValueVariable');
+      return;
     }
+
+    const { values, texts } = getMultiVariableValues(variable);
+
+    if (isEqual(this._prevRepeatValues, values)) {
+      return;
+    }
+
+    const panelToRepeat = this.state.body;
+    const repeatedPanels: VizPanel[] = [];
+
+    // when variable has no options (due to error or similar) it will not render any panels at all
+    // adding a placeholder in this case so that there is at least empty panel that can display error
+    const emptyVariablePlaceholderOption = {
+      values: [''],
+      texts: variable.hasAllValue() ? ['All'] : ['None'],
+    };
+
+    const variableValues = values.length ? values : emptyVariablePlaceholderOption.values;
+    const variableTexts = texts.length ? texts : emptyVariablePlaceholderOption.texts;
+    for (let index = 0; index < variableValues.length; index++) {
+      const cloneState: Partial<VizPanelState> = {
+        $variables: new SceneVariableSet({
+          variables: [
+            new LocalValueVariable({
+              name: variable.state.name,
+              value: variableValues[index],
+              text: String(variableTexts[index]),
+            }),
+          ],
+        }),
+        key: getCloneKey(panelToRepeat.state.key!, index),
+      };
+      const clone = panelToRepeat.clone(cloneState);
+      repeatedPanels.push(clone);
+    }
+
+    this.setState({ repeatedPanels });
+    this._prevRepeatValues = values;
+
+    this.publishEvent(new DashboardRepeatsProcessedEvent({ source: this }), true);
   }
 
-  public getVizPanel() {
-    return this.state.body;
+  public setRepeatByVariable(variableName: string | undefined) {
+    const stateUpdate: Partial<AutoGridItemState> = { variableName };
+
+    if (this.state.body.state.$variables) {
+      this.state.body.setState({ $variables: undefined });
+    }
+
+    this._variableDependency.setVariableNames(variableName ? [variableName] : []);
+
+    this.setState(stateUpdate);
+    this.performRepeat();
   }
 
-  public static Component = ({ model }: SceneComponentProps<ResponsiveGridItem>) => {
-    const { body } = model.useState();
-    const style = useStyles2(getStyles);
+  public getParentGrid(): AutoGridLayout {
+    if (!(this.parent instanceof AutoGridLayout)) {
+      throw new Error('Parent is not a ResponsiveGridLayout');
+    }
 
-    return (
-      <div className={cx(style.wrapper)}>
-        <body.Component model={body} />
-      </div>
-    );
-  };
-}
+    return this.parent;
+  }
 
-function getStyles(theme: GrafanaTheme2) {
-  return {
-    wrapper: css({
-      width: '100%',
-      height: '100%',
-      position: 'relative',
-    }),
-  };
+  public getBoundingBox(): { width: number; height: number; top: number; left: number } {
+    const rect = this.containerRef.current!.getBoundingClientRect();
+
+    return {
+      width: rect.width,
+      height: rect.height,
+      top: this.containerRef.current!.offsetTop,
+      left: this.containerRef.current!.offsetLeft,
+    };
+  }
+
+  public scrollIntoView() {
+    scrollCanvasElementIntoView(this, this.containerRef);
+  }
 }

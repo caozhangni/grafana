@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 
 import { SelectableValue } from '@grafana/data';
-import { EditorField, EditorFieldGroup, InputGroup } from '@grafana/experimental';
+import { selectors } from '@grafana/e2e-selectors';
+import { EditorField, EditorFieldGroup, InputGroup } from '@grafana/plugin-ui';
 import { Button, InlineField, InlineFieldRow, Combobox, ComboboxOption } from '@grafana/ui';
 
 import { PrometheusDatasource } from '../../datasource';
@@ -93,6 +94,7 @@ export function MetricCombobox({
           value={query.metric}
           onChange={onComboboxChange}
           createCustomValue
+          data-testid={selectors.components.DataSource.Prometheus.queryEditor.builder.metricSelect}
         />
         <Button
           tooltip="Open metrics explorer"

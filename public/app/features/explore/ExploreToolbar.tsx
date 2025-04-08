@@ -14,6 +14,7 @@ import {
   ToolbarButton,
   ButtonGroup,
   useStyles2,
+  Button,
 } from '@grafana/ui';
 import { AppChromeUpdate } from 'app/core/components/AppChrome/AppChromeUpdate';
 import { t, Trans } from 'app/core/internationalization';
@@ -28,7 +29,6 @@ import { getFiscalYearStartMonth, getTimeZone } from '../profile/state/selectors
 import { ExploreTimeControls } from './ExploreTimeControls';
 import { LiveTailButton } from './LiveTailButton';
 import { useQueriesDrawerContext } from './QueriesDrawer/QueriesDrawerContext';
-import { QueriesDrawerDropdown } from './QueriesDrawer/QueriesDrawerDropdown';
 import { ShortLinkButtonMenu } from './ShortLinkButtonMenu';
 import { ToolbarExtensionPoint } from './extensions/ToolbarExtensionPoint';
 import { changeDatasource } from './state/datasource';
@@ -91,7 +91,7 @@ export function ExploreToolbar({ exploreId, onChangeTime, onContentOutlineToogle
   const correlationDetails = useSelector(selectCorrelationDetails);
   const isCorrelationsEditorMode = correlationDetails?.editorMode || false;
   const isLeftPane = useSelector(isLeftPaneSelector(exploreId));
-  const { drawerOpened, setDrawerOpened, queryLibraryAvailable } = useQueriesDrawerContext();
+  const { drawerOpened, setDrawerOpened } = useQueriesDrawerContext();
 
   const shouldRotateSplitIcon = useMemo(
     () => (isLeftPane && isLargerPane) || (!isLeftPane && !isLargerPane),
@@ -204,23 +204,20 @@ export function ExploreToolbar({ exploreId, onChangeTime, onContentOutlineToogle
     dispatch(changeRefreshInterval({ exploreId, refreshInterval }));
   };
 
-  const navBarActions = [<ShortLinkButtonMenu key="share" />];
-
-  if (queryLibraryAvailable) {
-    navBarActions.unshift(<QueriesDrawerDropdown key="queryLibrary" variant="full" />);
-  } else {
-    navBarActions.unshift(
-      <ToolbarButton
-        variant={drawerOpened ? 'active' : 'canvas'}
-        aria-label={t('explore.secondary-actions.query-history-button-aria-label', 'Query history')}
-        onClick={() => setDrawerOpened(!drawerOpened)}
-        data-testid={Components.QueryTab.queryHistoryButton}
-        icon="history"
-      >
-        <Trans i18nKey="explore.secondary-actions.query-history-button">Query history</Trans>
-      </ToolbarButton>
-    );
-  }
+  const navBarActions = [
+    <Button
+      key="query-history"
+      size="sm"
+      variant={'secondary'}
+      aria-label={t('explore.secondary-actions.query-history-button-aria-label', 'Query history')}
+      onClick={() => setDrawerOpened(!drawerOpened)}
+      data-testid={Components.QueryTab.queryHistoryButton}
+      icon="history"
+    >
+      <Trans i18nKey="explore.secondary-actions.query-history-button">Query history</Trans>
+    </Button>,
+    <ShortLinkButtonMenu key="share" />,
+  ];
 
   return (
     <div>
@@ -232,7 +229,7 @@ export function ExploreToolbar({ exploreId, onChangeTime, onContentOutlineToogle
           <ToolbarButton
             key="content-outline"
             variant="canvas"
-            tooltip="Content outline"
+            tooltip={t('explore.explore-toolbar.tooltip-content-outline', 'Content outline')}
             icon="list-ui-alt"
             iconOnly={splitted}
             onClick={onContentOutlineToogle}
@@ -240,7 +237,7 @@ export function ExploreToolbar({ exploreId, onChangeTime, onContentOutlineToogle
             aria-controls={isContentOutlineOpen ? 'content-outline-container' : undefined}
             className={styles.toolbarButton}
           >
-            Outline
+            <Trans i18nKey="explore.explore-toolbar.outline">Outline</Trans>
           </ToolbarButton>,
           <DataSourcePicker
             key={`${exploreId}-ds-picker`}

@@ -1,5 +1,10 @@
-import { config, getBackendSrv } from '@grafana/runtime';
+import { Observable, from, retry, catchError, filter, map, mergeMap } from 'rxjs';
+
+import { isLiveChannelMessageEvent, LiveChannelScope } from '@grafana/data';
+import { config, getBackendSrv, getGrafanaLiveSrv } from '@grafana/runtime';
 import { contextSrv } from 'app/core/core';
+
+import { getAPINamespace } from '../../api/utils';
 
 import {
   ListOptions,
@@ -11,27 +16,85 @@ import {
   ResourceList,
   ResourceClient,
   ObjectMeta,
+  WatchOptions,
   K8sAPIGroupList,
   AnnoKeySavedFromUI,
+  ResourceEvent,
+  GroupVersionResource,
 } from './types';
-
-export interface GroupVersionResource {
-  group: string;
-  version: string;
-  resource: string;
-}
 
 export class ScopedResourceClient<T = object, S = object, K = string> implements ResourceClient<T, S, K> {
   readonly url: string;
+  readonly gvr: GroupVersionResource;
 
   constructor(gvr: GroupVersionResource, namespaced = true) {
-    const ns = namespaced ? `namespaces/${config.namespace}/` : '';
-
+    const ns = namespaced ? `namespaces/${getAPINamespace()}/` : '';
+    this.gvr = gvr;
     this.url = `/apis/${gvr.group}/${gvr.version}/${ns}${gvr.resource}`;
   }
 
   public async get(name: string): Promise<Resource<T, S, K>> {
     return getBackendSrv().get<Resource<T, S, K>>(`${this.url}/${name}`);
+  }
+
+  public watch(params?: WatchOptions): Observable<ResourceEvent<T, S, K>> {
+    const requestParams = {
+      watch: true,
+      labelSelector: this.parseListOptionsSelector(params?.labelSelector),
+      fieldSelector: this.parseListOptionsSelector(params?.fieldSelector),
+    };
+    if (params?.name) {
+      requestParams.fieldSelector = `metadata.name=${name}`;
+    }
+
+    // For now, watch over live only supports provisioning
+    if (this.gvr.group === 'provisioning.grafana.app') {
+      let query = '';
+      if (requestParams.fieldSelector?.startsWith('metadata.name=')) {
+        query = requestParams.fieldSelector.substring('metadata.name'.length);
+      }
+      return getGrafanaLiveSrv()
+        .getStream<ResourceEvent<T, S, K>>({
+          scope: LiveChannelScope.Watch,
+          namespace: this.gvr.group,
+          path: `${this.gvr.version}/${this.gvr.resource}${query}/${config.bootData.user.uid}`,
+        })
+        .pipe(
+          filter((event) => isLiveChannelMessageEvent(event)),
+          map((event) => event.message)
+        );
+    }
+
+    const decoder = new TextDecoder();
+    return getBackendSrv()
+      .chunked({
+        url: this.url,
+        params: requestParams,
+        method: 'GET',
+      })
+      .pipe(
+        filter((response) => response.ok && response.data instanceof Uint8Array),
+        map((response) => {
+          const text = decoder.decode(response.data);
+          return text.split('\n');
+        }),
+        mergeMap((text) => from(text)),
+        filter((line) => line.length > 0),
+        map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch (e) {
+            console.warn('Invalid JSON in watch stream:', e, line);
+            return null;
+          }
+        }),
+        filter((event): event is ResourceEvent<T, S, K> => event !== null),
+        retry({ count: 3, delay: 1000 }),
+        catchError((error) => {
+          console.error('Watch stream error:', error);
+          throw error;
+        })
+      );
   }
 
   public async subresource<S>(name: string, path: string): Promise<S> {
@@ -62,8 +125,10 @@ export class ScopedResourceClient<T = object, S = object, K = string> implements
     return getBackendSrv().put<Resource<T, S, K>>(`${this.url}/${obj.metadata.name}`, obj);
   }
 
-  public async delete(name: string): Promise<MetaStatus> {
-    return getBackendSrv().delete<MetaStatus>(`${this.url}/${name}`);
+  public async delete(name: string, showSuccessAlert: boolean): Promise<MetaStatus> {
+    return getBackendSrv().delete<MetaStatus>(`${this.url}/${name}`, undefined, {
+      showSuccessAlert,
+    });
   }
 
   private parseListOptionsSelector = parseListOptionsSelector;

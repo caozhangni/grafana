@@ -2,15 +2,17 @@ import { useState } from 'react';
 
 import { config } from '@grafana/runtime';
 import { Box, Stack, Tab, TabContent, TabsBar } from '@grafana/ui';
+import { t } from 'app/core/internationalization';
 
 import { AlertingPageWrapper } from '../components/AlertingPageWrapper';
 import { isLocalDevEnv } from '../utils/misc';
+import { withPageErrorBoundary } from '../withPageErrorBoundary';
 
 import GettingStarted, { WelcomeHeader } from './GettingStarted';
 import { getInsightsScenes, insightsIsAvailable } from './Insights';
 import { PluginIntegrations } from './PluginIntegrations';
 
-export default function Home() {
+function Home() {
   const insightsEnabled = (insightsIsAvailable() || isLocalDevEnv()) && Boolean(config.featureToggles.alertingInsights);
 
   const [activeTab, setActiveTab] = useState<'insights' | 'overview'>(insightsEnabled ? 'insights' : 'overview');
@@ -18,7 +20,7 @@ export default function Home() {
 
   return (
     <AlertingPageWrapper
-      title="Alerting"
+      title={t('alerting.home.title-alerting', 'Alerting')}
       subTitle="Learn about problems in your systems moments after they occur"
       navId="alerting"
     >
@@ -31,14 +33,14 @@ export default function Home() {
           {insightsEnabled && (
             <Tab
               key="insights"
-              label="Insights"
+              label={t('alerting.home.label-insights', 'Insights')}
               active={activeTab === 'insights'}
               onChangeTab={() => setActiveTab('insights')}
             />
           )}
           <Tab
             key="overview"
-            label="Get started"
+            label={t('alerting.home.label-get-started', 'Get started')}
             active={activeTab === 'overview'}
             onChangeTab={() => setActiveTab('overview')}
           />
@@ -51,3 +53,5 @@ export default function Home() {
     </AlertingPageWrapper>
   );
 }
+
+export default withPageErrorBoundary(Home);

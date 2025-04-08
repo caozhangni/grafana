@@ -3,17 +3,20 @@ package apistore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
 
 	"github.com/google/uuid"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/klog/v2"
 
-	"github.com/grafana/grafana/pkg/apimachinery/identity"
+	authtypes "github.com/grafana/authlib/types"
 	"github.com/grafana/grafana/pkg/apimachinery/utils"
 	"github.com/grafana/grafana/pkg/storage/unified/resource"
 )
@@ -37,9 +40,9 @@ func formatBytes(numBytes int) string {
 
 // Called on create
 func (s *Storage) prepareObjectForStorage(ctx context.Context, newObject runtime.Object) ([]byte, error) {
-	user, err := identity.GetRequester(ctx)
-	if err != nil {
-		return nil, err
+	info, ok := authtypes.AuthInfoFrom(ctx)
+	if !ok {
+		return nil, errors.New("missing auth info")
 	}
 
 	obj, err := utils.MetaAccessor(newObject)
@@ -47,7 +50,7 @@ func (s *Storage) prepareObjectForStorage(ctx context.Context, newObject runtime
 		return nil, err
 	}
 	if obj.GetName() == "" {
-		return nil, storage.ErrResourceVersionSetOnCreate
+		return nil, storage.NewInvalidObjError("", "missing name")
 	}
 	if obj.GetResourceVersion() != "" {
 		return nil, storage.ErrResourceVersionSetOnCreate
@@ -55,13 +58,19 @@ func (s *Storage) prepareObjectForStorage(ctx context.Context, newObject runtime
 	if obj.GetUID() == "" {
 		obj.SetUID(types.UID(uuid.NewString()))
 	}
+	if obj.GetFolder() != "" && !s.opts.EnableFolderSupport {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("folders are not supported for: %s", s.gr.String()))
+	}
 
 	if s.opts.RequireDeprecatedInternalID {
 		// nolint:staticcheck
 		id := obj.GetDeprecatedInternalID()
 		if id < 1 {
+			// the ID must be smaller than 9007199254740991, otherwise we will lose prescision
+			// on the frontend, which uses the number type to store ids. The largest safe number in
+			// javascript is 9007199254740991, compared to 9223372036854775807 as the max int64
 			// nolint:staticcheck
-			obj.SetDeprecatedInternalID(s.snowflake.Generate().Int64())
+			obj.SetDeprecatedInternalID(s.snowflake.Generate().Int64() & ((1 << 52) - 1))
 		}
 	}
 
@@ -69,15 +78,10 @@ func (s *Storage) prepareObjectForStorage(ctx context.Context, newObject runtime
 	obj.SetResourceVersion("")
 	obj.SetSelfLink("")
 
-	// Read+write will verify that repository format is accurate
-	repo, err := obj.GetRepositoryInfo()
-	if err != nil {
-		return nil, err
-	}
-	obj.SetRepositoryInfo(repo)
 	obj.SetUpdatedBy("")
 	obj.SetUpdatedTimestamp(nil)
-	obj.SetCreatedBy(user.GetUID())
+	obj.SetCreatedBy(info.GetUID())
+	obj.SetGeneration(1) // the first time we write
 
 	var buf bytes.Buffer
 	if err = s.codec.Encode(newObject, &buf); err != nil {
@@ -88,9 +92,9 @@ func (s *Storage) prepareObjectForStorage(ctx context.Context, newObject runtime
 
 // Called on update
 func (s *Storage) prepareObjectForUpdate(ctx context.Context, updateObject runtime.Object, previousObject runtime.Object) ([]byte, error) {
-	user, err := identity.GetRequester(ctx)
-	if err != nil {
-		return nil, err
+	info, ok := authtypes.AuthInfoFrom(ctx)
+	if !ok {
+		return nil, errors.New("missing auth info")
 	}
 
 	obj, err := utils.MetaAccessor(updateObject)
@@ -132,14 +136,35 @@ func (s *Storage) prepareObjectForUpdate(ctx context.Context, updateObject runti
 		obj.SetDeprecatedInternalID(previousInternalID) // nolint:staticcheck
 	}
 
-	// Read+write will verify that origin format is accurate
-	repo, err := obj.GetRepositoryInfo()
-	if err != nil {
-		return nil, err
+	// Check if we should bump the generation
+	changed := obj.GetFolder() != previous.GetFolder()
+	if changed {
+		if !s.opts.EnableFolderSupport {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("folders are not supported for: %s", s.gr.String()))
+		}
+		// TODO: check that we can move the folder?
+	} else if obj.GetDeletionTimestamp() != nil && previous.GetDeletionTimestamp() == nil {
+		changed = true // bump generation when deleted
+	} else {
+		spec, e1 := obj.GetSpec()
+		oldSpec, e2 := previous.GetSpec()
+		if e1 == nil && e2 == nil {
+			if !apiequality.Semantic.DeepEqual(spec, oldSpec) {
+				changed = true
+			}
+		}
 	}
-	obj.SetRepositoryInfo(repo)
-	obj.SetUpdatedBy(user.GetUID())
-	obj.SetUpdatedTimestampMillis(time.Now().UnixMilli())
+
+	// Mark the resource as changed
+	if changed {
+		obj.SetGeneration(previous.GetGeneration() + 1)
+		obj.SetUpdatedBy(info.GetUID())
+		obj.SetUpdatedTimestampMillis(time.Now().UnixMilli())
+	} else {
+		obj.SetGeneration(previous.GetGeneration())
+		obj.SetAnnotation(utils.AnnoKeyUpdatedBy, previous.GetAnnotation(utils.AnnoKeyUpdatedBy))
+		obj.SetAnnotation(utils.AnnoKeyUpdatedTimestamp, previous.GetAnnotation(utils.AnnoKeyUpdatedTimestamp))
+	}
 
 	var buf bytes.Buffer
 	if err = s.codec.Encode(updateObject, &buf); err != nil {

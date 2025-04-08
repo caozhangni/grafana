@@ -73,6 +73,7 @@ module.exports = [
       'jsx-a11y': jsxA11yPlugin,
       'no-barrel-files': barrelPlugin,
       '@grafana': grafanaPlugin,
+      unicorn: unicornPlugin,
     },
 
     settings: {
@@ -117,6 +118,11 @@ module.exports = [
               importNames: ['Trans', 't'],
               message: 'Please import from app/core/internationalization instead',
             },
+            {
+              name: 'i18next',
+              importNames: ['t'],
+              message: 'Please import from app/core/internationalization instead',
+            },
           ],
         },
       ],
@@ -124,6 +130,7 @@ module.exports = [
       // Use typescript's no-redeclare for compatibility with overrides
       'no-redeclare': 'off',
       '@typescript-eslint/no-redeclare': ['error'],
+      'unicorn/no-empty-file': 'error',
     },
   },
   {
@@ -190,7 +197,6 @@ module.exports = [
   {
     name: 'grafana/ui-overrides',
     files: ['packages/grafana-ui/**/*.{ts,tsx}'],
-    ignores: ['packages/grafana-ui/**/*.{test,story}.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -258,6 +264,7 @@ module.exports = [
       'prefer-const': 'error',
       'react/no-unused-prop-types': 'error',
       'react/self-closing-comp': 'error',
+      'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
       'unicorn/no-unused-properties': 'error',
     },
   },

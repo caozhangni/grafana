@@ -5,7 +5,8 @@ import { useLocation } from 'react-use';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { config, isFetchError } from '@grafana/runtime';
-import { Alert, Card, Icon, LoadingPlaceholder, useStyles2, withErrorBoundary } from '@grafana/ui';
+import { Alert, Card, Icon, LoadingPlaceholder, useStyles2 } from '@grafana/ui';
+import { t } from 'app/core/internationalization';
 
 import { AlertLabels } from './components/AlertLabels';
 import { RuleViewerLayout } from './components/rule-viewer/RuleViewerLayout';
@@ -13,6 +14,7 @@ import { useCloudCombinedRulesMatching } from './hooks/useCombinedRule';
 import { getRulesSourceByName } from './utils/datasource';
 import { createViewLink } from './utils/misc';
 import { unescapePathSeparators } from './utils/rule-id';
+import { withPageErrorBoundary } from './withPageErrorBoundary';
 
 const pageTitle = 'Find rule';
 const subUrl = config.appSubUrl;
@@ -75,7 +77,7 @@ export function RedirectToRuleViewer(): JSX.Element | null {
   if (loading) {
     return (
       <RuleViewerLayout title={pageTitle}>
-        <LoadingPlaceholder text="Loading rule..." />
+        <LoadingPlaceholder text={t('alerting.redirect-to-rule-viewer.text-loading-rule', 'Loading rule...')} />
       </RuleViewerLayout>
     );
   }
@@ -85,7 +87,7 @@ export function RedirectToRuleViewer(): JSX.Element | null {
   if (!rulesSource) {
     return (
       <RuleViewerLayout title={pageTitle}>
-        <Alert title="Could not view rule">
+        <Alert title={t('alerting.redirect-to-rule-viewer.title-could-not-view-rule', 'Could not view rule')}>
           <details className={styles.errorMessage}>{`Could not find data source with name: ${sourceName}.`}</details>
         </Alert>
       </RuleViewerLayout>
@@ -153,4 +155,4 @@ function getStyles(theme: GrafanaTheme2) {
   };
 }
 
-export default withErrorBoundary(RedirectToRuleViewer, { style: 'page' });
+export default withPageErrorBoundary(RedirectToRuleViewer);

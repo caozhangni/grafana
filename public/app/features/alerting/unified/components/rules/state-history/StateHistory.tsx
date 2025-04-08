@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { AlertState, GrafanaTheme2, dateTimeFormat } from '@grafana/data';
 import { Alert, Field, Icon, Input, Label, LoadingPlaceholder, Stack, Tooltip, useStyles2 } from '@grafana/ui';
+import { Trans, t } from 'app/core/internationalization';
 import { StateHistoryItem, StateHistoryItemData } from 'app/types/unified-alerting';
 import { GrafanaAlertStateWithReason, PromAlertingRuleState } from 'app/types/unified-alerting-dto';
 
@@ -27,16 +28,16 @@ type StateHistoryMap = Record<string, StateHistoryRowItem[]>;
 type StateHistoryRow = DynamicTableItemProps<StateHistoryRowItem>;
 
 interface Props {
-  alertId: string;
+  ruleUID: string;
 }
 
-const StateHistory = ({ alertId }: Props) => {
+const StateHistory = ({ ruleUID }: Props) => {
   const [textFilter, setTextFilter] = useState<string>('');
   const handleTextFilter = useCallback((event: FormEvent<HTMLInputElement>) => {
     setTextFilter(event.currentTarget.value);
   }, []);
 
-  const { loading, error, result = [] } = useManagedAlertStateHistory(alertId);
+  const { loading, error, result = [] } = useManagedAlertStateHistory(ruleUID);
 
   const styles = useStyles2(getStyles);
 
@@ -84,7 +85,9 @@ const StateHistory = ({ alertId }: Props) => {
           label={
             <Label>
               <Stack gap={0.5} alignItems="center">
-                <span>Filter group</span>
+                <span>
+                  <Trans i18nKey="alerting.state-history.filter-group">Filter group</Trans>
+                </span>
                 <Tooltip
                   content={
                     <div>
@@ -99,7 +102,11 @@ const StateHistory = ({ alertId }: Props) => {
             </Label>
           }
         >
-          <Input prefix={<Icon name={'search'} />} onChange={handleTextFilter} placeholder="Search" />
+          <Input
+            prefix={<Icon name={'search'} />}
+            onChange={handleTextFilter}
+            placeholder={t('alerting.state-history.placeholder-search', 'Search')}
+          />
         </Field>
       </nav>
       {tables}

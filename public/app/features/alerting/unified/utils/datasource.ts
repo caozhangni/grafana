@@ -10,9 +10,12 @@ import {
 } from 'app/plugins/datasource/alertmanager/types';
 import { AccessControlAction } from 'app/types';
 import {
-  ExternalRulesSourceIdentifier,
+  DataSourceRulesSourceIdentifier as DataSourceRulesSourceIdentifier,
+  GrafanaRulesSourceIdentifier,
   GrafanaRulesSourceSymbol,
+  RuleIdentifier,
   RulesSource,
+  RulesSourceIdentifier,
   RulesSourceUid,
 } from 'app/types/unified-alerting';
 
@@ -24,9 +27,16 @@ import { isAlertManagerWithConfigAPI } from '../state/AlertmanagerContext';
 
 import { instancesPermissions, notificationsPermissions, silencesPermissions } from './access-control';
 import { getAllDataSources } from './config';
+import { isGrafanaRuleIdentifier } from './rules';
 
 export const GRAFANA_RULES_SOURCE_NAME = 'grafana';
 export const GRAFANA_DATASOURCE_NAME = '-- Grafana --';
+
+export const GrafanaRulesSource: GrafanaRulesSourceIdentifier = {
+  uid: GrafanaRulesSourceSymbol,
+  name: GRAFANA_RULES_SOURCE_NAME,
+  ruleSourceType: 'grafana',
+};
 
 export enum DataSourceType {
   Alertmanager = 'alertmanager',
@@ -214,10 +224,11 @@ export function getAllRulesSourceNames(): string[] {
   return availableRulesSources;
 }
 
-export function getExternalRulesSources(): ExternalRulesSourceIdentifier[] {
+export function getExternalRulesSources(): DataSourceRulesSourceIdentifier[] {
   return getRulesDataSources().map((ds) => ({
     name: ds.name,
     uid: ds.uid,
+    ruleSourceType: 'datasource',
   }));
 }
 
@@ -332,4 +343,16 @@ export function getDefaultOrFirstCompatibleDataSource(): DataSourceInstanceSetti
 
 export function isDataSourceManagingAlerts(ds: DataSourceInstanceSettings<DataSourceJsonData>) {
   return ds.jsonData.manageAlerts !== false; //if this prop is undefined it defaults to true
+}
+
+export function ruleIdentifierToRuleSourceIdentifier(ruleIdentifier: RuleIdentifier): RulesSourceIdentifier {
+  if (isGrafanaRuleIdentifier(ruleIdentifier)) {
+    return { uid: GrafanaRulesSourceSymbol, name: GRAFANA_RULES_SOURCE_NAME, ruleSourceType: 'grafana' };
+  }
+
+  return {
+    uid: getDatasourceAPIUid(ruleIdentifier.ruleSourceName),
+    name: ruleIdentifier.ruleSourceName,
+    ruleSourceType: 'datasource',
+  };
 }

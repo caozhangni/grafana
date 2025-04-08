@@ -10,20 +10,22 @@ import {
   ScopeSpecFilter,
   urlUtil,
 } from '@grafana/data';
-import { getPrometheusTime } from '@grafana/prometheus/src/language_utils';
+import { getPrometheusTime } from '@grafana/prometheus';
 import { config, FetchResponse, getBackendSrv, getDataSourceSrv } from '@grafana/runtime';
 import {
   AdHocFiltersVariable,
+  ConstantVariable,
+  CustomVariable,
   sceneGraph,
   SceneObject,
   SceneObjectState,
   SceneObjectUrlValues,
+  SceneScopesBridge,
   SceneTimeRange,
   sceneUtils,
   SceneVariable,
   SceneVariableState,
 } from '@grafana/scenes';
-import { getClosestScopesFacade } from 'app/features/scopes';
 
 import { getDatasourceSrv } from '../plugins/datasource_srv';
 
@@ -35,8 +37,24 @@ import { MetricDatasourceHelper } from './helpers/MetricDatasourceHelper';
 import { sortResources } from './otel/util';
 import { LOGS_METRIC, TRAILS_ROUTE, VAR_DATASOURCE_EXPR, VAR_OTEL_AND_METRIC_FILTERS } from './shared';
 
+export function isAdHocVariable(variable: SceneVariable | null): variable is AdHocFiltersVariable {
+  return variable !== null && variable.state.type === 'adhoc';
+}
+
+export function isCustomVariable(variable: SceneVariable | null): variable is CustomVariable {
+  return variable !== null && variable.state.type === 'custom';
+}
+
+export function isConstantVariable(variable: SceneVariable | null): variable is ConstantVariable {
+  return variable !== null && variable.state.type === 'constant';
+}
+
 export function getTrailFor(model: SceneObject): DataTrail {
   return sceneGraph.getAncestor(model, DataTrail);
+}
+
+export function getScopesBridgeFor(model: SceneObject): SceneScopesBridge | undefined {
+  return sceneGraph.getScopesBridge(getTrailFor(model));
 }
 
 export function getTrailSettings(model: SceneObject): DataTrailSettings {
@@ -179,7 +197,7 @@ export function limitAdhocProviders(
 
       const opts = {
         filters,
-        scopes: getClosestScopesFacade(variable)?.value,
+        scopes: sceneGraph.getScopesBridge(dataTrail)?.getValue(),
         queries: dataTrail.getQueries(),
       };
 
@@ -223,7 +241,7 @@ export function limitAdhocProviders(
       const opts = {
         key: filter.key,
         filters,
-        scopes: getClosestScopesFacade(variable)?.value,
+        scopes: sceneGraph.getScopesBridge(dataTrail)?.getValue(),
         queries: dataTrail.getQueries(),
       };
 

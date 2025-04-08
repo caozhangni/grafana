@@ -136,6 +136,10 @@ func TestUnifiedStorageQueries(t *testing.T) {
 					Name: "single path",
 					Data: &sqlResourceUpdateRVRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						GUIDToRV: map[string]int64{
+							"guid1": 123,
+							"guid2": 456,
+						},
 					},
 				},
 			},
@@ -143,9 +147,9 @@ func TestUnifiedStorageQueries(t *testing.T) {
 			sqlResourceHistoryRead: {
 				{
 					Name: "single path",
-					Data: &sqlResourceReadRequest{
+					Data: &sqlResourceHistoryReadRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
-						Request: &resource.ReadRequest{
+						Request: &historyReadRequest{
 							ResourceVersion: 123,
 							Key: &resource.ResourceKey{
 								Namespace: "ns",
@@ -159,31 +163,49 @@ func TestUnifiedStorageQueries(t *testing.T) {
 				},
 			},
 
+			sqlResourceHistoryReadLatestRV: {
+				{
+					Name: "single path",
+					Data: &sqlResourceHistoryReadLatestRVRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Request: &historyReadLatestRVRequest{
+							Key: &resource.ResourceKey{
+								Namespace: "ns",
+								Group:     "gp",
+								Resource:  "rs",
+								Name:      "nm",
+							},
+						},
+						Response: new(resourceHistoryReadLatestRVResponse),
+					},
+				},
+				{
+					Name: "with WatchEvent_DELETED",
+					Data: &sqlResourceHistoryReadLatestRVRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Request: &historyReadLatestRVRequest{
+							Key: &resource.ResourceKey{
+								Namespace: "ns",
+								Group:     "gp",
+								Resource:  "rs",
+								Name:      "nm",
+							},
+							EventType: resource.WatchEvent_DELETED,
+						},
+						Response: new(resourceHistoryReadLatestRVResponse),
+					},
+				},
+			},
+
 			sqlResourceHistoryUpdateRV: {
 				{
 					Name: "single path",
 					Data: &sqlResourceUpdateRVRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
-					},
-				},
-			},
-
-			sqlResoureceHistoryUpdateUid: {
-				{
-					Name: "modify uids in history",
-					Data: &sqlResourceHistoryUpdateRequest{
-						SQLTemplate: mocks.NewTestingSQLTemplate(),
-						WriteEvent: resource.WriteEvent{
-							Key: &resource.ResourceKey{
-								Namespace: "nn",
-								Group:     "gg",
-								Resource:  "rr",
-								Name:      "name",
-							},
-							PreviousRV: 1234,
+						GUIDToRV: map[string]int64{
+							"guid1": 123,
+							"guid2": 456,
 						},
-						OldUID: "old-uid",
-						NewUID: "new-uid",
 					},
 				},
 			},
@@ -193,6 +215,7 @@ func TestUnifiedStorageQueries(t *testing.T) {
 					Name: "insert into resource_history",
 					Data: &sqlResourceRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Generation:  789,
 						WriteEvent: resource.WriteEvent{
 							Key: &resource.ResourceKey{
 								Namespace: "nn",
@@ -203,6 +226,76 @@ func TestUnifiedStorageQueries(t *testing.T) {
 							PreviousRV: 1234,
 						},
 						Folder: "fldr",
+					},
+				},
+			},
+
+			sqlResourceHistoryGet: {
+				{
+					Name: "read object history",
+					Data: &sqlGetHistoryRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Key: &resource.ResourceKey{
+							Namespace: "nn",
+							Group:     "gg",
+							Resource:  "rr",
+							Name:      "name",
+						},
+					},
+				},
+				{
+					Name: "read trash",
+					Data: &sqlGetHistoryRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Key: &resource.ResourceKey{
+							Namespace: "nn",
+							Group:     "gg",
+							Resource:  "rr",
+						},
+						Trash: true,
+					},
+				},
+				{
+					Name: "read trash second page",
+					Data: &sqlGetHistoryRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Key: &resource.ResourceKey{
+							Namespace: "nn",
+							Group:     "gg",
+							Resource:  "rr",
+						},
+						Trash:   true,
+						StartRV: 123456,
+					},
+				},
+			},
+
+			sqlResourceHistoryPrune: {
+				{
+					Name: "max-versions",
+					Data: &sqlPruneHistoryRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Key: &resource.ResourceKey{
+							Namespace: "default",
+							Group:     "provisioning.grafana.app",
+							Resource:  "repositories",
+							Name:      "repo-xyz",
+						},
+						HistoryLimit: 10,
+					},
+				},
+				{
+					Name: "collapse-generations",
+					Data: &sqlPruneHistoryRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Key: &resource.ResourceKey{
+							Namespace: "default",
+							Group:     "provisioning.grafana.app",
+							Resource:  "repositories",
+							Name:      "repo-xyz",
+						},
+						PartitionByGeneration: true,
+						HistoryLimit:          1,
 					},
 				},
 			},
@@ -244,14 +337,14 @@ func TestUnifiedStorageQueries(t *testing.T) {
 
 			sqlResourceStats: {
 				{
-					Name: "query",
+					Name: "global",
 					Data: &sqlStatsRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
 						MinCount:    10, // Not yet used in query (only response filter)
 					},
 				},
 				{
-					Name: "query-namespace",
+					Name: "namespace",
 					Data: &sqlStatsRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
 						Namespace:   "default",
@@ -259,12 +352,21 @@ func TestUnifiedStorageQueries(t *testing.T) {
 					},
 				},
 				{
-					Name: "query-folder",
+					Name: "folder",
 					Data: &sqlStatsRequest{
 						SQLTemplate: mocks.NewTestingSQLTemplate(),
 						Namespace:   "default",
 						Folder:      "folder",
 						MinCount:    10, // Not yet used in query (only response filter)
+					},
+				},
+				{
+					Name: "resource",
+					Data: &sqlStatsRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Namespace:   "default",
+						Group:       "dashboard.grafana.app",
+						Resource:    "dashboards",
 					},
 				},
 			},
@@ -313,6 +415,38 @@ func TestUnifiedStorageQueries(t *testing.T) {
 							Namespace: "x",
 							Group:     "g",
 							Resource:  "r",
+						},
+					},
+				},
+			},
+			sqlResourceHistoryDelete: {
+				{
+					Name: "guid",
+					Data: &sqlResourceHistoryDeleteRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						GUID:        `xxxx`,
+						Namespace:   "ns",
+					},
+				},
+				{
+					Name: "wipe",
+					Data: &sqlResourceHistoryDeleteRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Namespace:   "ns",
+						Group:       "ggg",
+						Resource:    "rrr",
+					},
+				},
+			},
+			sqlResourceInsertFromHistory: {
+				{
+					Name: "update",
+					Data: &sqlResourceInsertFromHistoryRequest{
+						SQLTemplate: mocks.NewTestingSQLTemplate(),
+						Key: &resource.ResourceKey{
+							Namespace: "default",
+							Group:     "dashboard.grafana.app",
+							Resource:  "dashboards",
 						},
 					},
 				},

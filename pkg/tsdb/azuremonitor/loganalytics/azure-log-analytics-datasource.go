@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +28,18 @@ import (
 	"github.com/grafana/grafana/pkg/tsdb/azuremonitor/utils"
 )
 
+// Returns tables with the `HasData` field set to true
+func filterTablesWithData(tables []types.MetadataTable) []types.MetadataTable {
+	filtered := []types.MetadataTable{}
+	for _, table := range tables {
+		if table.HasData {
+			filtered = append(filtered, table)
+		}
+	}
+
+	return filtered
+}
+
 func (e *AzureLogAnalyticsDatasource) ResourceRequest(rw http.ResponseWriter, req *http.Request, cli *http.Client) (http.ResponseWriter, error) {
 	if req.URL.Path == "/usage/basiclogs" {
 		newUrl := &url.URL{
@@ -35,7 +48,57 @@ func (e *AzureLogAnalyticsDatasource) ResourceRequest(rw http.ResponseWriter, re
 			Path:   "/v1/query",
 		}
 		return e.GetBasicLogsUsage(req.Context(), newUrl.String(), cli, rw, req.Body)
+	} else if strings.Contains(req.URL.Path, "/metadata") {
+		// Add necessary headers
+		req.Header.Set("Prefer", "metadata-format-v4,exclude-resourcetypes,exclude-customfunctions")
+		queryParams := req.URL.Query()
+		// Add necessary query params
+		queryParams.Add("select", "categories,solutions,tables,workspaces")
+		req.URL.RawQuery = queryParams.Encode()
+		resp, err := cli.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch metadata: %w", err)
+		}
+
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				e.Logger.Warn("Failed to close response body for metadata request", "err", err)
+			}
+		}()
+
+		encoding := resp.Header.Get("Content-Encoding")
+		body, err := decode(encoding, resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read metadata response: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("metadata API error: %s", string(body))
+		}
+
+		var metadata types.AzureLogAnalyticsMetadata
+		err = json.Unmarshal(body, &metadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata response: %w", err)
+		}
+		metadata.Tables = filterTablesWithData(metadata.Tables)
+
+		responseBody, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal metadata response: %w", err)
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusOK)
+		_, err = rw.Write(responseBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write metadata response: %w", err)
+		}
+
+		return rw, nil
 	}
+
+	// Default behavior for other requests
 	return e.Proxy.Do(rw, req, cli)
 }
 
@@ -267,8 +330,23 @@ func (e *AzureLogAnalyticsDatasource) buildQuery(ctx context.Context, query back
 
 func (e *AzureLogAnalyticsDatasource) executeQuery(ctx context.Context, query *AzureLogAnalyticsQuery, dsInfo types.DatasourceInfo, client *http.Client, url string) (*backend.DataResponse, error) {
 	// If azureLogAnalyticsSameAs is defined and set to false, return an error
-	if sameAs, ok := dsInfo.JSONData["azureLogAnalyticsSameAs"]; ok && !sameAs.(bool) {
-		return nil, backend.DownstreamError(fmt.Errorf("credentials for Log Analytics are no longer supported. Go to the data source configuration to update Azure Monitor credentials"))
+	if sameAs, ok := dsInfo.JSONData["azureLogAnalyticsSameAs"]; ok {
+		sameAsValue, ok := sameAs.(bool)
+		if !ok {
+			stringVal, ok := sameAs.(string)
+			if !ok {
+				return nil, backend.DownstreamError(fmt.Errorf("unknown value for Log Analytics credentials. Go to the data source configuration to update Azure Monitor credentials"))
+			}
+
+			var err error
+			sameAsValue, err = strconv.ParseBool(stringVal)
+			if err != nil {
+				return nil, backend.DownstreamError(fmt.Errorf("unknown value for Log Analytics credentials. Go to the data source configuration to update Azure Monitor credentials"))
+			}
+		}
+		if !sameAsValue {
+			return nil, backend.DownstreamError(fmt.Errorf("credentials for Log Analytics are no longer supported. Go to the data source configuration to update Azure Monitor credentials"))
+		}
 	}
 
 	queryJSONModel := dataquery.AzureMonitorQuery{}
@@ -512,7 +590,12 @@ func (e *AzureLogAnalyticsDatasource) createRequest(ctx context.Context, queryUR
 	}
 
 	if query.AppInsightsQuery {
-		body["applications"] = []string{query.Resources[0]}
+		// If the query type is traces then we only need the first resource as the rest are specified in the query
+		if query.QueryType == dataquery.AzureQueryTypeAzureTraces {
+			body["applications"] = []string{query.Resources[0]}
+		} else {
+			body["applications"] = query.Resources
+		}
 	}
 
 	jsonValue, err := json.Marshal(body)

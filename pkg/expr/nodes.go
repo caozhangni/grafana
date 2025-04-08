@@ -106,10 +106,16 @@ func (gn *CMDNode) Execute(ctx context.Context, now time.Time, vars mathexp.Vars
 	return gn.Command.Execute(ctx, now, vars, s.tracer)
 }
 
-func buildCMDNode(rn *rawNode, toggles featuremgmt.FeatureToggles) (*CMDNode, error) {
+func buildCMDNode(rn *rawNode, toggles featuremgmt.FeatureToggles, sqlExpressionCellLimit int64) (*CMDNode, error) {
 	commandType, err := GetExpressionCommandType(rn.Query)
 	if err != nil {
 		return nil, fmt.Errorf("invalid command type in expression '%v': %w", rn.RefID, err)
+	}
+
+	if commandType == TypeSQL {
+		if !toggles.IsEnabledGlobally(featuremgmt.FlagSqlExpressions) {
+			return nil, fmt.Errorf("sql expressions are disabled")
+		}
 	}
 
 	node := &CMDNode{
@@ -157,7 +163,7 @@ func buildCMDNode(rn *rawNode, toggles featuremgmt.FeatureToggles) (*CMDNode, er
 	case TypeThreshold:
 		node.Command, err = UnmarshalThresholdCommand(rn, toggles)
 	case TypeSQL:
-		node.Command, err = UnmarshalSQLCommand(rn)
+		node.Command, err = UnmarshalSQLCommand(rn, sqlExpressionCellLimit)
 	default:
 		return nil, fmt.Errorf("expression command type '%v' in expression '%v' not implemented", commandType, rn.RefID)
 	}
@@ -185,6 +191,8 @@ type DSNode struct {
 	intervalMS int64
 	maxDP      int64
 	request    Request
+
+	isInputToSQLExpr bool
 }
 
 func (dn *DSNode) String() string {
@@ -333,7 +341,7 @@ func executeDSNodesGrouped(ctx context.Context, now time.Time, vars mathexp.Vars
 				}
 
 				var result mathexp.Results
-				responseType, result, err := s.converter.Convert(ctx, dn.datasource.Type, dataFrames, s.allowLongFrames)
+				responseType, result, err := s.converter.Convert(ctx, dn.datasource.Type, dataFrames, dn.isInputToSQLExpr)
 				if err != nil {
 					result.Error = makeConversionError(dn.RefID(), err)
 				}
@@ -401,7 +409,9 @@ func (dn *DSNode) Execute(ctx context.Context, now time.Time, _ mathexp.Vars, s 
 	}
 
 	var result mathexp.Results
-	responseType, result, err = s.converter.Convert(ctx, dn.datasource.Type, dataFrames, s.allowLongFrames)
+
+	responseType, result, err = s.converter.Convert(ctx, dn.datasource.Type, dataFrames, dn.isInputToSQLExpr)
+
 	if err != nil {
 		err = makeConversionError(dn.refID, err)
 	}

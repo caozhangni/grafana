@@ -11,10 +11,12 @@ import {
   SceneObjectRef,
 } from '@grafana/scenes';
 import { Alert, Drawer, Tab, TabsBar } from '@grafana/ui';
+import { t } from 'app/core/internationalization';
 import { getDataSourceWithInspector } from 'app/features/dashboard/components/Inspector/hooks';
 import { supportsDataQuery } from 'app/features/dashboard/components/PanelEditor/utils';
 import { InspectTab } from 'app/features/inspector/types';
 
+import { DashboardScene } from '../scene/DashboardScene';
 import { getDashboardUrl } from '../utils/getDashboardUrl';
 import { getDashboardSceneFor } from '../utils/utils';
 
@@ -91,21 +93,7 @@ export class PanelInspectDrawer extends SceneObjectBase<PanelInspectDrawerState>
   }
 
   onClose = () => {
-    const dashboard = getDashboardSceneFor(this);
-    const meta = dashboard.state.meta;
-
-    locationService.push(
-      getDashboardUrl({
-        uid: dashboard.state.uid,
-        slug: dashboard.state.meta.slug,
-        currentQueryParams: locationService.getLocation().search,
-        updateQuery: {
-          inspect: null,
-          inspectTab: null,
-        },
-        isHomeDashboard: !meta.url && !meta.slug && !meta.isNew,
-      })
-    );
+    onPanelInspectClose(getDashboardSceneFor(this));
   };
 }
 
@@ -148,11 +136,33 @@ function PanelInspectRenderer({ model }: SceneComponentProps<PanelInspectDrawer>
       }
     >
       {pluginNotLoaded && (
-        <Alert title="Panel plugin not loaded">
+        <Alert
+          title={t('dashboard-scene.panel-inspect-renderer.title-panel-plugin-not-loaded', 'Panel plugin not loaded')}
+        >
           Make sure the panel you want to inspect is visible and has been displayed before opening inspect.
         </Alert>
       )}
       {currentTab && currentTab.Component && <currentTab.Component model={currentTab} />}
     </Drawer>
+  );
+}
+
+export function onPanelInspectClose(dashboard: DashboardScene) {
+  const meta = dashboard.state.meta;
+  // Checking for location here as well, otherwise down below isHomeDashboard will be set to true
+  // as it doesn't have uid neither slug nor url.
+  const isNew = !dashboard.state.uid && locationService.getLocation().pathname === '/dashboard/new';
+
+  locationService.push(
+    getDashboardUrl({
+      uid: dashboard.state.uid,
+      slug: dashboard.state.meta.slug,
+      currentQueryParams: locationService.getLocation().search,
+      updateQuery: {
+        inspect: null,
+        inspectTab: null,
+      },
+      isHomeDashboard: !meta.url && !meta.slug && !isNew,
+    })
   );
 }

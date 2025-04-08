@@ -8,6 +8,8 @@
  *
  */
 
+import { Observable } from 'rxjs';
+
 /** The object type and version */
 export interface TypeMeta<K = string> {
   apiVersion: string;
@@ -21,37 +23,56 @@ export interface ObjectMeta {
   namespace?: string;
   // Resource version will increase (not sequentially!) with any change to the saved value
   resourceVersion: string;
+  // Incremented by the server when the value of spec changes
+  generation?: number;
   // The first time this was saved
   creationTimestamp: string;
   // General resource annotations -- including the common grafana.app values
   annotations?: GrafanaAnnotations & GrafanaClientAnnotations;
   // General application level key+value pairs
-  labels?: Record<string, string>;
+  labels?: GrafanaLabels;
 }
 
 export const AnnoKeyCreatedBy = 'grafana.app/createdBy';
 export const AnnoKeyUpdatedTimestamp = 'grafana.app/updatedTimestamp';
 export const AnnoKeyUpdatedBy = 'grafana.app/updatedBy';
 export const AnnoKeyFolder = 'grafana.app/folder';
-export const AnnoKeyFolderTitle = 'grafana.app/folderTitle';
-export const AnnoKeyFolderId = 'grafana.app/folderId';
-export const AnnoKeyFolderUrl = 'grafana.app/folderUrl';
 export const AnnoKeyMessage = 'grafana.app/message';
-export const AnnoKeySlug = 'grafana.app/slug';
-export const AnnoKeyDashboardId = 'grafana.app/dashboardId';
 
-// Identify where values came from
-export const AnnoKeyRepoName = 'grafana.app/repoName';
-export const AnnoKeyRepoPath = 'grafana.app/repoPath';
-export const AnnoKeyRepoHash = 'grafana.app/repoHash';
-export const AnnoKeyRepoTimestamp = 'grafana.app/repoTimestamp';
+export enum ManagerKind {
+  Repo = 'repo',
+  Terraform = 'terraform',
+  Kubectl = 'kubectl',
+  Plugin = 'plugin',
+}
 
+export const AnnoKeyManagerKind = 'grafana.app/managedBy';
+export const AnnoKeyManagerIdentity = 'grafana.app/managerId';
+export const AnnoKeySourcePath = 'grafana.app/sourcePath';
+export const AnnoKeySourceChecksum = 'grafana.app/sourceChecksum';
+export const AnnoKeySourceTimestamp = 'grafana.app/sourceTimestamp';
+
+// for auditing... when saving from the UI, mark which version saved it from where
 export const AnnoKeySavedFromUI = 'grafana.app/saved-from-ui';
-export const AnnoKeyDashboardNotFound = 'grafana.app/dashboard-not-found';
+
+/** @deprecated NOT A REAL annotation -- this is just a shim */
+export const AnnoKeySlug = 'grafana.app/slug';
+/** @deprecated NOT A REAL annotation -- this is just a shim */
 export const AnnoKeyDashboardIsSnapshot = 'grafana.app/dashboard-is-snapshot';
+/** @deprecated NOT A REAL annotation -- this is just a shim */
 export const AnnoKeyDashboardSnapshotOriginalUrl = 'grafana.app/dashboard-snapshot-original-url';
-export const AnnoKeyDashboardIsNew = 'grafana.app/dashboard-is-new';
+/** @deprecated NOT A REAL annotation -- this is just a shim */
 export const AnnoKeyDashboardGnetId = 'grafana.app/dashboard-gnet-id';
+
+/** @deprecated NOT A REAL annotation -- this is just a shim */
+export const AnnoKeyFolderTitle = 'grafana.app/folderTitle';
+/** @deprecated NOT A REAL annotation -- this is just a shim */
+export const AnnoKeyFolderId = 'grafana.app/folderId';
+/** @deprecated NOT A REAL annotation -- this is just a shim */
+export const AnnoKeyFolderUrl = 'grafana.app/folderUrl';
+
+// labels
+export const DeprecatedInternalId = 'grafana.app/deprecatedInternalID';
 
 // Annotations provided by the API
 type GrafanaAnnotations = {
@@ -59,32 +80,48 @@ type GrafanaAnnotations = {
   [AnnoKeyUpdatedTimestamp]?: string;
   [AnnoKeyUpdatedBy]?: string;
   [AnnoKeyFolder]?: string;
-  [AnnoKeySlug]?: string;
-  [AnnoKeyDashboardId]?: number;
 
-  [AnnoKeyRepoName]?: string;
-  [AnnoKeyRepoPath]?: string;
-  [AnnoKeyRepoHash]?: string;
-  [AnnoKeyRepoTimestamp]?: string;
+  [AnnoKeyManagerKind]?: ManagerKind;
+  [AnnoKeyManagerIdentity]?: string;
+  [AnnoKeySourcePath]?: string;
+  [AnnoKeySourceChecksum]?: string;
+  [AnnoKeySourceTimestamp]?: string;
 };
 
 // Annotations provided by the front-end client
 type GrafanaClientAnnotations = {
   [AnnoKeyMessage]?: string;
+
+  [AnnoKeySlug]?: string;
   [AnnoKeyFolderTitle]?: string;
   [AnnoKeyFolderUrl]?: string;
   [AnnoKeyFolderId]?: number;
   [AnnoKeyFolderId]?: number;
   [AnnoKeySavedFromUI]?: string;
-  [AnnoKeyDashboardNotFound]?: boolean;
   [AnnoKeyDashboardIsSnapshot]?: boolean;
   [AnnoKeyDashboardSnapshotOriginalUrl]?: string;
-  [AnnoKeyDashboardIsNew]?: boolean;
 
   // TODO: This should be provided by the API
   // This is the dashboard ID for the Gcom API. This set when a dashboard is created through importing a dashboard from Grafana.com.
   [AnnoKeyDashboardGnetId]?: string;
 };
+
+// Labels
+type GrafanaLabels = {
+  [DeprecatedInternalId]?: string;
+};
+
+export interface GroupVersionResource {
+  group: string;
+  version: string;
+  resource: string;
+}
+
+export interface GroupVersionKind {
+  group: string;
+  version: string;
+  kind: string;
+}
 
 export interface Resource<T = object, S = object, K = string> extends TypeMeta<K> {
   metadata: ObjectMeta;
@@ -152,6 +189,25 @@ export interface ListOptions {
 
   // Limit the response count
   limit?: number;
+
+  // Watch for changes
+  watch?: boolean;
+}
+
+export interface WatchOptions {
+  // A specific resource
+  name?: string;
+
+  // Start watching from a given resource version
+  resourceVersion?: string;
+
+  // Query by labels
+  // https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
+  labelSelector?: ListOptionsLabelSelector;
+
+  // Query by fields
+  // https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/
+  fieldSelector?: ListOptionsFieldSelector;
 }
 
 export interface MetaStatus {
@@ -171,13 +227,19 @@ export interface MetaStatus {
   details?: object;
 }
 
+export interface ResourceEvent<T = object, S = object, K = string> {
+  type: 'ADDED' | 'DELETED' | 'MODIFIED';
+  object: Resource<T, S, K>;
+}
+
 export interface ResourceClient<T = object, S = object, K = string> {
   create(obj: ResourceForCreate<T, K>): Promise<Resource<T, S, K>>;
   get(name: string): Promise<Resource<T, S, K>>;
+  watch(opts?: WatchOptions): Observable<ResourceEvent<T, S, K>>;
   subresource<S>(name: string, path: string): Promise<S>;
   list(opts?: ListOptions): Promise<ResourceList<T, S, K>>;
   update(obj: ResourceForCreate<T, K>): Promise<Resource<T, S, K>>;
-  delete(name: string): Promise<MetaStatus>;
+  delete(name: string, showSuccessAlert?: boolean): Promise<MetaStatus>;
 }
 
 export interface K8sAPIGroup {

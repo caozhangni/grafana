@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { type Unsubscribable } from 'rxjs';
 
 import { dateTime, usePluginContext, PluginLoadingStrategy } from '@grafana/data';
-import { config } from '@grafana/runtime';
+import { config, AppPluginConfig } from '@grafana/runtime';
 import appEvents from 'app/core/app_events';
 import { ShowModalReactEvent } from 'app/types/events';
 
@@ -18,6 +18,7 @@ import {
   getAppPluginConfigs,
   getAppPluginIdFromExposedComponentId,
   getAppPluginDependencies,
+  getExtensionPointPluginMeta,
 } from './utils';
 
 jest.mock('app/features/plugins/pluginSettings', () => ({
@@ -475,6 +476,7 @@ describe('Plugin Extensions / Utils', () => {
       extensions: {
         addedLinks: [],
         addedComponents: [],
+        addedFunctions: [],
         exposedComponents: [],
         extensionPoints: [],
       },
@@ -553,6 +555,7 @@ describe('Plugin Extensions / Utils', () => {
       extensions: {
         addedLinks: [],
         addedComponents: [],
+        addedFunctions: [],
         exposedComponents: [],
         extensionPoints: [],
       },
@@ -584,6 +587,7 @@ describe('Plugin Extensions / Utils', () => {
             addedComponents: [],
             exposedComponents: [],
             extensionPoints: [],
+            addedFunctions: [],
           },
         },
         'myorg-third-app': {
@@ -623,6 +627,7 @@ describe('Plugin Extensions / Utils', () => {
             ],
             exposedComponents: [],
             extensionPoints: [],
+            addedFunctions: [],
           },
         },
       };
@@ -679,6 +684,7 @@ describe('Plugin Extensions / Utils', () => {
             ],
             exposedComponents: [],
             extensionPoints: [],
+            addedFunctions: [],
           },
           dependencies: {
             ...genereicAppPluginConfig.dependencies,
@@ -705,6 +711,7 @@ describe('Plugin Extensions / Utils', () => {
               },
             ],
             extensionPoints: [],
+            addedFunctions: [],
           },
           dependencies: {
             ...genereicAppPluginConfig.dependencies,
@@ -726,6 +733,7 @@ describe('Plugin Extensions / Utils', () => {
               },
             ],
             extensionPoints: [],
+            addedFunctions: [],
           },
         },
         'myorg-sixth-app': {
@@ -763,6 +771,7 @@ describe('Plugin Extensions / Utils', () => {
         addedComponents: [],
         exposedComponents: [],
         extensionPoints: [],
+        addedFunctions: [],
       },
     };
 
@@ -791,6 +800,7 @@ describe('Plugin Extensions / Utils', () => {
               },
             ],
             extensionPoints: [],
+            addedFunctions: [],
           },
         },
         'myorg-third-app': {
@@ -825,6 +835,7 @@ describe('Plugin Extensions / Utils', () => {
               },
             ],
             extensionPoints: [],
+            addedFunctions: [],
           },
           dependencies: {
             ...genereicAppPluginConfig.dependencies,
@@ -850,6 +861,7 @@ describe('Plugin Extensions / Utils', () => {
               },
             ],
             extensionPoints: [],
+            addedFunctions: [],
           },
           dependencies: {
             ...genereicAppPluginConfig.dependencies,
@@ -871,6 +883,7 @@ describe('Plugin Extensions / Utils', () => {
               },
             ],
             extensionPoints: [],
+            addedFunctions: [],
           },
         },
       };
@@ -902,6 +915,7 @@ describe('Plugin Extensions / Utils', () => {
       extensions: {
         addedLinks: [],
         addedComponents: [],
+        addedFunctions: [],
         exposedComponents: [],
         extensionPoints: [],
       },
@@ -967,6 +981,123 @@ describe('Plugin Extensions / Utils', () => {
       const appPluginIds = getAppPluginDependencies('myorg-second-app');
 
       expect(appPluginIds).toEqual([]);
+    });
+  });
+
+  describe('getExtensionPointPluginMeta()', () => {
+    const originalApps = config.apps;
+    const mockExtensionPointId = 'test-extension-point';
+    const mockApp1: AppPluginConfig = {
+      id: 'app1',
+      path: 'app1',
+      version: '1.0.0',
+      preload: false,
+      angular: { detected: false, hideDeprecation: false },
+      loadingStrategy: PluginLoadingStrategy.fetch,
+      dependencies: {
+        grafanaVersion: '8.0.0',
+        plugins: [],
+        extensions: {
+          exposedComponents: [],
+        },
+      },
+      extensions: {
+        addedComponents: [
+          { title: 'Component 1', targets: [mockExtensionPointId] },
+          { title: 'Component 2', targets: ['other-point'] },
+        ],
+        addedLinks: [
+          { title: 'Link 1', targets: [mockExtensionPointId] },
+          { title: 'Link 2', targets: ['other-point'] },
+        ],
+        addedFunctions: [],
+        exposedComponents: [],
+        extensionPoints: [],
+      },
+    };
+
+    const mockApp2: AppPluginConfig = {
+      id: 'app2',
+      path: 'app2',
+      version: '1.0.0',
+      preload: false,
+      angular: { detected: false, hideDeprecation: false },
+      loadingStrategy: PluginLoadingStrategy.fetch,
+      dependencies: {
+        grafanaVersion: '8.0.0',
+        plugins: [],
+        extensions: {
+          exposedComponents: [],
+        },
+      },
+      extensions: {
+        addedComponents: [{ title: 'Component 3', targets: [mockExtensionPointId] }],
+        addedLinks: [],
+        addedFunctions: [],
+        exposedComponents: [],
+        extensionPoints: [],
+      },
+    };
+
+    beforeEach(() => {
+      config.apps = {};
+    });
+
+    afterEach(() => {
+      config.apps = originalApps;
+    });
+
+    it('should return empty map when no plugins have extensions for the point', () => {
+      config.apps = {
+        app1: { ...mockApp1, extensions: { ...mockApp1.extensions, addedComponents: [], addedLinks: [] } },
+        app2: { ...mockApp2, extensions: { ...mockApp2.extensions, addedComponents: [], addedLinks: [] } },
+      };
+
+      const result = getExtensionPointPluginMeta(mockExtensionPointId);
+      expect(result.size).toBe(0);
+    });
+
+    it('should return map with plugins that have components for the extension point', () => {
+      config.apps = {
+        app1: mockApp1,
+        app2: mockApp2,
+      };
+
+      const result = getExtensionPointPluginMeta(mockExtensionPointId);
+
+      expect(result.size).toBe(2);
+      expect(result.get('app1')).toEqual({
+        addedComponents: [{ title: 'Component 1', targets: [mockExtensionPointId] }],
+        addedLinks: [{ title: 'Link 1', targets: [mockExtensionPointId] }],
+      });
+      expect(result.get('app2')).toEqual({
+        addedComponents: [{ title: 'Component 3', targets: [mockExtensionPointId] }],
+        addedLinks: [],
+      });
+    });
+
+    it('should filter out plugins that do not have any extensions for the point', () => {
+      config.apps = {
+        app1: mockApp1,
+        app2: { ...mockApp2, extensions: { ...mockApp2.extensions, addedComponents: [], addedLinks: [] } },
+        app3: {
+          ...mockApp1,
+          id: 'app3',
+          extensions: {
+            ...mockApp1.extensions,
+            addedComponents: [{ title: 'Component 4', targets: ['other-point'] }],
+            addedLinks: [{ title: 'Link 3', targets: ['other-point'] }],
+          },
+        },
+      };
+
+      const result = getExtensionPointPluginMeta(mockExtensionPointId);
+
+      expect(result.size).toBe(1);
+      expect(result.get('app1')).toEqual({
+        addedComponents: [{ title: 'Component 1', targets: [mockExtensionPointId] }],
+        addedLinks: [{ title: 'Link 1', targets: [mockExtensionPointId] }],
+      });
     });
   });
 });

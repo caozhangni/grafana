@@ -22,11 +22,29 @@ jest.mock('@grafana/runtime', () => ({
   ...jest.requireActual('@grafana/runtime'),
   getTemplateSrv: () => ({
     replace: (val: string) => {
+      if (val === '$ws') {
+        return '/subscriptions/def-456/resourceGroups/dev-3/providers/microsoft.operationalinsights/workspaces/la-workspace';
+      }
       return val;
     },
+    getVariables: () => [
+      { name: 'var1', current: { value: 'value1' } },
+      { name: 'var2', current: { value: 'value2' } },
+    ],
   }),
 }));
 
+const getResourceGroups = jest.fn().mockResolvedValue([{ resourceGroupURI: 'rg', resourceGroupName: 'rg', count: 1 }]);
+const getResourceNames = jest.fn().mockResolvedValue([
+  {
+    id: 'foobarID',
+    name: 'foobar',
+    subscriptionId: 'subID',
+    resourceGroup: 'resourceGroup',
+    type: 'foobarType',
+    location: 'london',
+  },
+]);
 const defaultProps = {
   query: {
     refId: 'A',
@@ -39,13 +57,26 @@ const defaultProps = {
   onChange: jest.fn(),
   datasource: createMockDatasource({
     getSubscriptions: jest.fn().mockResolvedValue([{ text: 'Primary Subscription', value: 'sub' }]),
-    getResourceGroups: jest.fn().mockResolvedValue([{ text: 'rg', value: 'rg' }]),
-    getMetricNamespaces: jest.fn().mockResolvedValue([{ text: 'foo/bar', value: 'foo/bar' }]),
-    getResourceNames: jest.fn().mockResolvedValue([{ text: 'foobar', value: 'foobar' }]),
+    getMetricNamespaces: jest
+      .fn()
+      .mockImplementation(
+        async (_subscriptionId: string, _resourceGroup?: string, _resourceUri?: string, custom?: boolean) => {
+          if (custom !== true) {
+            return [{ text: 'foo/bar', value: 'foo/bar' }];
+          }
+          return [{ text: 'foo/custom', value: 'foo/custom' }];
+        }
+      ),
     getVariablesRaw: jest.fn().mockReturnValue([
       { label: 'query0', name: 'sub0' },
       { label: 'query1', name: 'rg', query: { queryType: AzureQueryType.ResourceGroupsQuery } },
     ]),
+    azureResourceGraphDatasource: {
+      getResourceGroups,
+      getResourceNames,
+    },
+    getResourceGroups,
+    getResourceNames,
   }),
 };
 
@@ -80,10 +111,10 @@ describe('VariableEditor:', () => {
       render(<VariableEditor {...defaultProps} onChange={onChange} />);
       await waitFor(() => screen.queryByTestId('mockeditor'));
       expect(screen.queryByTestId('mockeditor')).toBeInTheDocument();
-      await userEvent.type(screen.getByTestId('mockeditor'), '{backspace}');
+      await userEvent.type(screen.getByTestId('mockeditor'), '2');
       expect(onChange).toHaveBeenCalledWith({
         azureLogAnalytics: {
-          query: 'test quer',
+          query: 'test query2',
         },
         queryType: 'Azure Log Analytics',
         refId: 'A',
@@ -347,6 +378,52 @@ describe('VariableEditor:', () => {
           queryType: AzureQueryType.LocationsQuery,
           subscription: 'sub',
           refId: 'A',
+        })
+      );
+    });
+
+    it('should run the query if requesting custom metric namespaces', async () => {
+      const onChange = jest.fn();
+      const { rerender } = render(<VariableEditor {...defaultProps} onChange={onChange} />);
+      // wait for initial load
+      await waitFor(() => expect(screen.getByText('Logs')).toBeInTheDocument());
+      await selectAndRerender('select query type', 'Custom Namespaces', onChange, rerender);
+      await selectAndRerender('select subscription', 'Primary Subscription', onChange, rerender);
+      await selectAndRerender('select resource group', 'rg', onChange, rerender);
+      await selectAndRerender('select namespace', 'foo/bar', onChange, rerender);
+      await selectAndRerender('select resource', 'foobar', onChange, rerender);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryType: AzureQueryType.CustomNamespacesQuery,
+          subscription: 'sub',
+          resourceGroup: 'rg',
+          namespace: 'foo/bar',
+          resource: 'foobar',
+          refId: 'A',
+        })
+      );
+    });
+
+    it('should run the query if requesting custom metrics for a resource', async () => {
+      const onChange = jest.fn();
+      const { rerender } = render(<VariableEditor {...defaultProps} onChange={onChange} />);
+      // wait for initial load
+      await waitFor(() => expect(screen.getByText('Logs')).toBeInTheDocument());
+      await selectAndRerender('select query type', 'Custom Metric Names', onChange, rerender);
+      await selectAndRerender('select subscription', 'Primary Subscription', onChange, rerender);
+      await selectAndRerender('select resource group', 'rg', onChange, rerender);
+      await selectAndRerender('select namespace', 'foo/bar', onChange, rerender);
+      await selectAndRerender('select resource', 'foobar', onChange, rerender);
+      await selectAndRerender('select custom namespace', 'foo/custom', onChange, rerender);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryType: AzureQueryType.CustomMetricNamesQuery,
+          subscription: 'sub',
+          resourceGroup: 'rg',
+          namespace: 'foo/bar',
+          resource: 'foobar',
+          refId: 'A',
+          customNamespace: 'foo/custom',
         })
       );
     });

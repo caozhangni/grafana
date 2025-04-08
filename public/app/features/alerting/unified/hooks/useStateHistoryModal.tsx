@@ -4,6 +4,7 @@ import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 import { GrafanaTheme2 } from '@grafana/data';
 import { config } from '@grafana/runtime';
 import { Modal, useStyles2 } from '@grafana/ui';
+import { t } from 'app/core/internationalization';
 import { RulerGrafanaRuleDTO } from 'app/types/unified-alerting-dto';
 
 const AnnotationsStateHistory = lazy(() => import('../components/rules/state-history/StateHistory'));
@@ -54,14 +55,14 @@ function useStateHistoryModal() {
         onDismiss={dismissModal}
         closeOnBackdropClick={true}
         closeOnEscape={true}
-        title="State history"
+        title={t('alerting.use-state-history-modal.state-history-modal.title-state-history', 'State history')}
         className={styles.modal}
         contentClassName={styles.modalContent}
       >
         <Suspense fallback={'Loading...'}>
           {implementation === StateHistoryImplementation.Loki && <LokiStateHistory ruleUID={rule.grafana_alert.uid} />}
           {implementation === StateHistoryImplementation.Annotations && (
-            <AnnotationsStateHistory alertId={rule.grafana_alert.id ?? ''} />
+            <AnnotationsStateHistory ruleUID={rule.grafana_alert.uid ?? ''} />
           )}
         </Suspense>
       </Modal>

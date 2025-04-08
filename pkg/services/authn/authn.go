@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/grafana/authlib/claims"
+	claims "github.com/grafana/authlib/types"
 	"github.com/grafana/grafana/pkg/api/response"
 	"github.com/grafana/grafana/pkg/apimachinery/identity"
 	"github.com/grafana/grafana/pkg/middleware/cookies"
@@ -31,6 +31,7 @@ const (
 	ClientSAML         = "auth.client.saml"
 	ClientPasswordless = "auth.client.passwordless"
 	ClientLDAP         = "ldap"
+	ClientProvisioning = "auth.client.apiserver.provisioning"
 )
 
 const (

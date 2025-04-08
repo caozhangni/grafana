@@ -4,6 +4,7 @@ import { isNumber, max, min, throttle } from 'lodash';
 import { useEffect, useState } from 'react';
 
 import { DataFrame, FieldType, GrafanaTheme2, PanelData, SelectableValue } from '@grafana/data';
+import { isValidLegacyName, utf8Support } from '@grafana/prometheus';
 import { config } from '@grafana/runtime';
 import {
   ConstantVariable,
@@ -27,12 +28,12 @@ import {
 } from '@grafana/scenes';
 import { DataQuery, SortOrder, TooltipDisplayMode } from '@grafana/schema';
 import { Alert, Button, Field, LoadingPlaceholder, useStyles2 } from '@grafana/ui';
-import { Trans } from 'app/core/internationalization';
+import { Trans, t } from 'app/core/internationalization';
 
 import { BreakdownLabelSelector } from '../BreakdownLabelSelector';
 import { DataTrail } from '../DataTrail';
+import { PanelMenu } from '../Menu/PanelMenu';
 import { MetricScene } from '../MetricScene';
-import { AddToExplorationButton } from '../MetricSelect/AddToExplorationsButton';
 import { StatusWrapper } from '../StatusWrapper';
 import { getAutoQueriesForMetric } from '../autoQuery/getAutoQueriesForMetric';
 import { AutoQueryDef } from '../autoQuery/types';
@@ -313,7 +314,14 @@ export class LabelBreakdownScene extends SceneObjectBase<LabelBreakdownSceneStat
       return [];
     }
 
-    const attributeArray: SelectableValue[] = resourceAttributes.split(',').map((el) => ({ label: el, value: el }));
+    const attributeArray: SelectableValue[] = resourceAttributes.split(',').map((el) => {
+      let label = el;
+      if (!isValidLegacyName(el)) {
+        // remove '' from label
+        label = el.slice(1, -1);
+      }
+      return { label, value: el };
+    });
     // shift ALL value to the front
     const all: SelectableValue = [{ label: 'All', value: ALL_VARIABLE_VALUE }];
     const firstGroup = all.concat(attributeArray);
@@ -366,14 +374,14 @@ export class LabelBreakdownScene extends SceneObjectBase<LabelBreakdownSceneStat
 
             {value !== ALL_VARIABLE_VALUE && (
               <>
-                <Field label="Search" className={styles.searchField}>
+                <Field label={t('trails.label-breakdown-scene.label-search', 'Search')} className={styles.searchField}>
                   <search.Component model={search} />
                 </Field>
                 <sortBy.Component model={sortBy} />
               </>
             )}
             {body instanceof LayoutSwitcher && (
-              <Field label="View">
+              <Field label={t('trails.label-breakdown-scene.label-view', 'View')}>
                 <body.Selector model={body} />
               </Field>
             )}
@@ -449,7 +457,7 @@ export function buildAllLayout(
       break;
     }
 
-    const expr = queryDef.queries[0].expr.replaceAll(VAR_GROUP_BY_EXP, String(option.value));
+    const expr = queryDef.queries[0].expr.replaceAll(VAR_GROUP_BY_EXP, utf8Support(String(option.value)));
     const unit = queryDef.unit;
 
     const vizPanel = PanelBuilders.timeseries()
@@ -465,14 +473,14 @@ export function buildAllLayout(
               refId: `A-${option.label}`,
               expr,
               legendFormat: `{{${option.label}}}`,
+              fromExploreMetrics: true,
             },
           ],
         })
       )
-      .setHeaderActions([
-        new SelectLabelAction({ labelName: String(option.value) }),
-        new AddToExplorationButton({ labelName: String(option.value) }),
-      ])
+      .setHeaderActions([new SelectLabelAction({ labelName: String(option.value) })])
+      .setShowMenuAlways(true)
+      .setMenu(new PanelMenu({ labelName: String(option.value) }))
       .setUnit(unit)
       .setBehaviors([fixLegendForUnspecifiedLabelValueBehavior])
       .build();
@@ -523,10 +531,9 @@ function buildNormalLayout(
       .setTitle(getLabelValue(frame))
       .setData(new SceneDataNode({ data: { ...data, series: [frame] } }))
       .setColor({ mode: 'fixed', fixedColor: getColorByIndex(frameIndex) })
-      .setHeaderActions([
-        new AddToFiltersGraphAction({ frame }),
-        new AddToExplorationButton({ labelName: getLabelValue(frame) }),
-      ])
+      .setHeaderActions([new AddToFiltersGraphAction({ frame })])
+      .setShowMenuAlways(true)
+      .setMenu(new PanelMenu({ labelName: getLabelValue(frame) }))
       .setUnit(unit)
       .build();
 
@@ -578,7 +585,7 @@ function buildNormalLayout(
           children: [
             new SceneFlexItem({
               body: new SceneReactObject({
-                reactNode: <LoadingPlaceholder text="Loading..." />,
+                reactNode: <LoadingPlaceholder text={t('trails.build-normal-layout.text-loading', 'Loading...')} />,
               }),
             }),
           ],

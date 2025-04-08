@@ -25,12 +25,6 @@ describe('PluginDetailsBody', () => {
       },
     },
     {
-      name: 'secrets manager type plugin',
-      plugin: {
-        type: PluginType.secretsmanager,
-      },
-    },
-    {
       name: 'enterprise plugin type without enterprise license',
       plugin: {
         isEnterprise: true,
@@ -98,5 +92,23 @@ describe('PluginDetailsBody', () => {
         expect(button).toHaveAttribute('aria-disabled', 'true');
       });
     });
+  });
+
+  it('should render data source connections tab content for installed data source plugin', async () => {
+    const plugin = getCatalogPluginMock({ type: PluginType.datasource });
+    config.featureToggles.datasourceConnectionsTab = true;
+    await act(async () => {
+      renderWithStore(
+        <PluginDetailsBody
+          plugin={plugin}
+          info={[]}
+          queryParams={{}}
+          pageId={PluginTabIds.DATASOURCE_CONNECTIONS}
+          showDetails={false}
+        />
+      );
+    });
+
+    expect(screen.getByText('No data sources defined')).toBeVisible();
   });
 });

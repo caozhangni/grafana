@@ -1,7 +1,7 @@
 import { of } from 'rxjs';
 
 import { FieldType, LoadingState, PanelData, getDefaultTimeRange, toDataFrame } from '@grafana/data';
-import { getPanelPlugin } from '@grafana/data/test/__mocks__/pluginMocks';
+import { getPanelPlugin } from '@grafana/data/test';
 import { setPluginImportUtils, setRunRequest } from '@grafana/runtime';
 import { SceneCanvasText, sceneGraph, SceneGridLayout, VizPanel } from '@grafana/scenes';
 import { LibraryPanel } from '@grafana/schema';
@@ -167,7 +167,7 @@ describe('LibraryPanelBehavior', () => {
 });
 
 async function buildTestSceneWithLibraryPanel() {
-  const behavior = new LibraryPanelBehavior({ title: 'LibraryPanel A title', name: 'LibraryPanel A', uid: '111' });
+  const behavior = new LibraryPanelBehavior({ name: 'LibraryPanel A', uid: '111' });
 
   const vizPanel = new VizPanel({
     title: 'Panel A',

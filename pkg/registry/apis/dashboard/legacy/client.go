@@ -42,11 +42,6 @@ func (d *directResourceClient) GetStats(ctx context.Context, in *resource.Resour
 	return d.server.GetStats(ctx, in)
 }
 
-// History implements ResourceClient.
-func (d *directResourceClient) History(ctx context.Context, in *resource.HistoryRequest, opts ...grpc.CallOption) (*resource.HistoryResponse, error) {
-	return d.server.History(ctx, in)
-}
-
 // IsHealthy implements ResourceClient.
 func (d *directResourceClient) IsHealthy(ctx context.Context, in *resource.HealthCheckRequest, opts ...grpc.CallOption) (*resource.HealthCheckResponse, error) {
 	return d.server.IsHealthy(ctx, in)
@@ -57,12 +52,12 @@ func (d *directResourceClient) List(ctx context.Context, in *resource.ListReques
 	return d.server.List(ctx, in)
 }
 
-func (d *directResourceClient) ListRepositoryObjects(ctx context.Context, in *resource.ListRepositoryObjectsRequest, opts ...grpc.CallOption) (*resource.ListRepositoryObjectsResponse, error) {
-	return d.server.ListRepositoryObjects(ctx, in)
+func (d *directResourceClient) ListManagedObjects(ctx context.Context, in *resource.ListManagedObjectsRequest, opts ...grpc.CallOption) (*resource.ListManagedObjectsResponse, error) {
+	return d.server.ListManagedObjects(ctx, in)
 }
 
-func (d *directResourceClient) CountRepositoryObjects(ctx context.Context, in *resource.CountRepositoryObjectsRequest, opts ...grpc.CallOption) (*resource.CountRepositoryObjectsResponse, error) {
-	return d.server.CountRepositoryObjects(ctx, in)
+func (d *directResourceClient) CountManagedObjects(ctx context.Context, in *resource.CountManagedObjectsRequest, opts ...grpc.CallOption) (*resource.CountManagedObjectsResponse, error) {
+	return d.server.CountManagedObjects(ctx, in)
 }
 
 // PutBlob implements ResourceClient.
@@ -73,11 +68,6 @@ func (d *directResourceClient) PutBlob(ctx context.Context, in *resource.PutBlob
 // Read implements ResourceClient.
 func (d *directResourceClient) Read(ctx context.Context, in *resource.ReadRequest, opts ...grpc.CallOption) (*resource.ReadResponse, error) {
 	return d.server.Read(ctx, in)
-}
-
-// Restore implements ResourceClient.
-func (d *directResourceClient) Restore(ctx context.Context, in *resource.RestoreRequest, opts ...grpc.CallOption) (*resource.RestoreResponse, error) {
-	return d.server.Restore(ctx, in)
 }
 
 // Search implements ResourceClient.
@@ -92,5 +82,10 @@ func (d *directResourceClient) Update(ctx context.Context, in *resource.UpdateRe
 
 // Watch implements ResourceClient.
 func (d *directResourceClient) Watch(ctx context.Context, in *resource.WatchRequest, opts ...grpc.CallOption) (resource.ResourceStore_WatchClient, error) {
-	return nil, fmt.Errorf("watch not yet supported with direct resource client")
+	return nil, fmt.Errorf("watch not supported with direct resource client")
+}
+
+// BulkProcess implements resource.ResourceClient.
+func (d *directResourceClient) BulkProcess(ctx context.Context, opts ...grpc.CallOption) (resource.BulkStore_BulkProcessClient, error) {
+	return nil, fmt.Errorf("BulkProcess not supported with direct resource client")
 }

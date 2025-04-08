@@ -1,11 +1,7 @@
 import { useCallback } from 'react';
 
 import { FrameMatcherID, MatcherConfig, StandardEditorProps } from '@grafana/data';
-import {
-  RefIDMultiPicker,
-  RefIDPicker,
-  stringsToRegexp,
-} from '@grafana/ui/src/components/MatchersUI/FieldsByFrameRefIdMatcher';
+import { RefIDMultiPicker, RefIDPicker, stringsToRegexp } from '@grafana/ui/internal';
 
 type Props = StandardEditorProps<MatcherConfig>;
 
@@ -29,7 +25,9 @@ export const FrameSelectionEditor = ({ value, context, onChange }: Props) => {
   );
 };
 
-export const FrameMultiSelectionEditor = ({ value, context, onChange }: Props) => {
+type FrameMultiSelectionEditorProps = Omit<StandardEditorProps<MatcherConfig>, 'item'>;
+
+export const FrameMultiSelectionEditor = ({ value, context, onChange }: FrameMultiSelectionEditorProps) => {
   const onFilterChange = useCallback(
     (v: string[]) => {
       onChange(

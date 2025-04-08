@@ -127,6 +127,7 @@ const (
 	FolderDataType           MigrateDataType = "FOLDER"
 	LibraryElementDataType   MigrateDataType = "LIBRARY_ELEMENT"
 	AlertRuleType            MigrateDataType = "ALERT_RULE"
+	AlertRuleGroupType       MigrateDataType = "ALERT_RULE_GROUP"
 	ContactPointType         MigrateDataType = "CONTACT_POINT"
 	NotificationPolicyType   MigrateDataType = "NOTIFICATION_POLICY"
 	NotificationTemplateType MigrateDataType = "NOTIFICATION_TEMPLATE"
@@ -293,6 +294,24 @@ type GetSnapshotParams struct {
 	// required:false
 	// default: 100
 	ResultLimit int `json:"resultLimit"`
+
+	// ResultSortColumn can be used to override the default system sort. Valid values are "name", "resource_type", and "status".
+	// in:query
+	// required:false
+	// default: default
+	ResultSortColumn string `json:"resultSortColumn"`
+
+	// ResultSortOrder is used with ResultSortColumn. Valid values are ASC and DESC.
+	// in:query
+	// required:false
+	// default: ASC
+	ResultSortOrder string `json:"resultSortOrder"`
+
+	// ErrorsOnly is used to only return resources with error statuses
+	// in:query
+	// required:false
+	// default: false
+	ErrorsOnly bool `json:"errorsOnly"`
 
 	// Session UID of a session
 	// in: path

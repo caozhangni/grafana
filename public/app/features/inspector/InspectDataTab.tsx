@@ -223,7 +223,7 @@ export class InspectDataTab extends PureComponent<Props, State> {
         <Button variant="primary" onClick={() => this.exportCsv(dataFrames, hasLogs)} size="sm">
           <Trans i18nKey="dashboard.inspect-data.download-csv">Download CSV</Trans>
         </Button>
-        {hasLogs && (
+        {hasLogs && !config.exploreHideLogsDownload && (
           <Button variant="primary" onClick={this.onExportLogsAsTxt} size="sm">
             <Trans i18nKey="dashboard.inspect-data.download-logs">Download logs</Trans>
           </Button>
@@ -258,7 +258,11 @@ export class InspectDataTab extends PureComponent<Props, State> {
     const dataFrames = this.getProcessedData();
 
     if (!dataFrames || !dataFrames.length) {
-      return <div>No Data</div>;
+      return (
+        <div>
+          <Trans i18nKey="inspector.inspect-data-tab.no-data">No data</Trans>
+        </div>
+      );
     }
 
     // let's make sure we don't try to render a frame that doesn't exists

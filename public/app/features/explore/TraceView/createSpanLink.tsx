@@ -22,6 +22,7 @@ import { PromQuery } from '@grafana/prometheus';
 import { getTemplateSrv } from '@grafana/runtime';
 import { DataQuery } from '@grafana/schema';
 import { Icon } from '@grafana/ui';
+import { t } from 'app/core/internationalization';
 import { getDatasourceSrv } from 'app/features/plugins/datasource_srv';
 
 import { LokiQuery } from '../../../plugins/datasource/loki/types';
@@ -29,6 +30,7 @@ import { ExploreFieldLinkModel, getFieldLinksForExplore, getVariableUsageInfo } 
 
 import { SpanLinkDef, SpanLinkFunc, Trace, TraceSpan } from './components';
 import { SpanLinkType } from './components/types/links';
+import { TraceSpanReference } from './components/types/trace';
 
 /**
  * This is a factory for the link creator. It returns the function mainly so it can return undefined in which case
@@ -246,7 +248,15 @@ function legacyCreateSpanLinkFactory(
             href: link.href,
             title: 'Related logs',
             onClick: link.onClick,
-            content: <Icon name="gf-logs" title="Explore the logs for this in split view" />,
+            content: (
+              <Icon
+                name="gf-logs"
+                title={t(
+                  'explore.legacy-create-span-link-factory.title-explore-split',
+                  'Explore the logs for this in split view'
+                )}
+              />
+            ),
             field,
             type: SpanLinkType.Logs,
           });
@@ -307,7 +317,15 @@ function legacyCreateSpanLinkFactory(
           title: query?.name,
           href: link.href,
           onClick: link.onClick,
-          content: <Icon name="chart-line" title="Explore metrics for this span" />,
+          content: (
+            <Icon
+              name="chart-line"
+              title={t(
+                'explore.legacy-create-span-link-factory.title-explore-metrics-for-this-span',
+                'Explore metrics for this span'
+              )}
+            />
+          ),
           field,
           type: SpanLinkType.Metrics,
         });
@@ -323,11 +341,12 @@ function legacyCreateSpanLinkFactory(
         }
 
         const link = createFocusSpanLink(reference.traceID, reference.spanID);
+        const title = getReferenceTitle(reference);
 
         links!.push({
           href: link.href,
-          title: reference.span ? reference.span.operationName : 'View linked span',
-          content: <Icon name="link" title="View linked span" />,
+          title,
+          content: <Icon name="link" title={title} />,
           onClick: link.onClick,
           field: link.origin,
           type: SpanLinkType.Traces,
@@ -338,11 +357,12 @@ function legacyCreateSpanLinkFactory(
     if (span.subsidiarilyReferencedBy && createFocusSpanLink) {
       for (const reference of span.subsidiarilyReferencedBy) {
         const link = createFocusSpanLink(reference.traceID, reference.spanID);
+        const title = getReferenceTitle(reference);
 
         links!.push({
           href: link.href,
-          title: reference.span ? reference.span.operationName : 'View linked span',
-          content: <Icon name="link" title="View linked span" />,
+          title,
+          content: <Icon name="link" title={title} />,
           onClick: link.onClick,
           field: link.origin,
           type: SpanLinkType.Traces,
@@ -356,7 +376,12 @@ function legacyCreateSpanLinkFactory(
       links.push({
         title: 'Session for this span',
         href: feO11yLink,
-        content: <Icon name="frontend-observability" title="Session for this span" />,
+        content: (
+          <Icon
+            name="frontend-observability"
+            title={t('explore.legacy-create-span-link-factory.title-session-for-this-span', 'Session for this span')}
+          />
+        ),
         field,
         type: SpanLinkType.Session,
       });
@@ -365,6 +390,14 @@ function legacyCreateSpanLinkFactory(
     return links;
   };
 }
+
+const getReferenceTitle = (reference: TraceSpanReference) => {
+  let title = reference.span ? reference.span.operationName : 'View linked span';
+  if (reference.refType === 'EXTERNAL') {
+    title = 'View linked span';
+  }
+  return title;
+};
 
 function getQueryForLoki(
   span: TraceSpan,

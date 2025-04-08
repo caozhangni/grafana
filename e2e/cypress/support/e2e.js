@@ -50,4 +50,9 @@ beforeEach(() => {
     cy.logToConsole('disabling dashboardScene feature toggle in localstorage');
     cy.setLocalStorage('grafana.featureToggles', 'dashboardScene=false');
   }
+
+  if (Cypress.env('kubernetesDashboards')) {
+    cy.logToConsole('enabling kubernetes dashboards API in localstorage');
+    cy.setLocalStorage('grafana.featureToggles', 'kubernetesDashboards=true');
+  }
 });

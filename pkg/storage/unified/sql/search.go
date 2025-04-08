@@ -53,21 +53,11 @@ func (b *backend) GetStats(ctx context.Context, req *resource.ResourceStatsReque
 	return rsp, nil
 }
 
-// History implements resource.ResourceIndexServer.
-func (b *backend) History(context.Context, *resource.HistoryRequest) (*resource.HistoryResponse, error) {
-	return &resource.HistoryResponse{
-		Error: &resource.ErrorResult{
-			Code:    http.StatusNotImplemented,
-			Message: "SQL backend does not implement History",
-		},
-	}, nil
-}
-
-func (b *backend) RepositoryList(ctx context.Context, req *resource.ListRepositoryObjectsRequest) (*resource.ListRepositoryObjectsResponse, error) {
+func (b *backend) RepositoryList(ctx context.Context, req *resource.ListManagedObjectsRequest) (*resource.ListManagedObjectsResponse, error) {
 	return nil, fmt.Errorf("SQL backend does not implement RepositoryList")
 }
 
-func (b *backend) RepositoryStats(context.Context, *resource.CountRepositoryObjectsRequest) (*resource.CountRepositoryObjectsResponse, error) {
+func (b *backend) RepositoryStats(context.Context, *resource.CountManagedObjectsRequest) (*resource.CountManagedObjectsResponse, error) {
 	return nil, fmt.Errorf("SQL backend does not implement RepositoryStats")
 }
 

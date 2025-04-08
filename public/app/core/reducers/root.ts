@@ -27,9 +27,11 @@ import teamsReducers from 'app/features/teams/state/reducers';
 import usersReducers from 'app/features/users/state/reducers';
 import templatingReducers from 'app/features/variables/state/keyedVariablesReducer';
 
+import { folderAPI } from '../../api/clients/folder';
+import { iamAPI } from '../../api/clients/iam';
+import { provisioningAPI } from '../../api/clients/provisioning';
 import { alertingApi } from '../../features/alerting/unified/api/alertingApi';
 import { userPreferencesAPI } from '../../features/preferences/api';
-import { queryLibraryApi } from '../../features/query-library/api/factory';
 import { cleanUpAction } from '../actions/cleanUp';
 
 const rootReducers = {
@@ -59,8 +61,10 @@ const rootReducers = {
   [publicDashboardApi.reducerPath]: publicDashboardApi.reducer,
   [browseDashboardsAPI.reducerPath]: browseDashboardsAPI.reducer,
   [cloudMigrationAPI.reducerPath]: cloudMigrationAPI.reducer,
-  [queryLibraryApi.reducerPath]: queryLibraryApi.reducer,
+  [iamAPI.reducerPath]: iamAPI.reducer,
   [userPreferencesAPI.reducerPath]: userPreferencesAPI.reducer,
+  [provisioningAPI.reducerPath]: provisioningAPI.reducer,
+  [folderAPI.reducerPath]: folderAPI.reducer,
 };
 
 const addedReducers = {};

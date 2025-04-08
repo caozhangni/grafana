@@ -39,7 +39,7 @@ import {
   toDataFrame,
   toUtc,
 } from '@grafana/data';
-import { SIPrefix } from '@grafana/data/src/valueFormats/symbolFormatters';
+import { SIPrefix } from '@grafana/data/internal';
 import { config } from '@grafana/runtime';
 import { BarAlignment, GraphDrawStyle, StackingMode } from '@grafana/schema';
 import { colors } from '@grafana/ui';
@@ -92,19 +92,17 @@ export function dedupLogRows(rows: LogRowModel[], strategy?: LogsDedupStrategy):
   }
 
   return rows.reduce((result: LogRowModel[], row: LogRowModel, index) => {
-    const rowCopy = { ...row };
     const previous = result[result.length - 1];
     if (index > 0 && isDuplicateRow(row, previous, strategy)) {
       previous.duplicates!++;
     } else {
-      rowCopy.duplicates = 0;
-      result.push(rowCopy);
+      result.push({ ...row, duplicates: 0 });
     }
     return result;
   }, []);
 }
 
-export function filterLogLevels(logRows: LogRowModel[], hiddenLogLevels: Set<LogLevel>): LogRowModel[] {
+export function filterLogLevels(logRows: LogRowModel[], hiddenLogLevels: Set<string>): LogRowModel[] {
   if (hiddenLogLevels.size === 0) {
     return logRows;
   }

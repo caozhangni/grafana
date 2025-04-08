@@ -2,7 +2,6 @@ package v0alpha1
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,10 +39,8 @@ var RepositoryResourceInfo = utils.NewResourceInfo(GROUP, VERSION,
 			switch m.Spec.Type {
 			case LocalRepositoryType:
 				target = m.Spec.Local.Path
-			case S3RepositoryType:
-				target = m.Spec.S3.Bucket
 			case GitHubRepositoryType:
-				target = fmt.Sprintf("%s/%s", m.Spec.GitHub.Owner, m.Spec.GitHub.Repository)
+				target = m.Spec.GitHub.URL
 			}
 
 			return []interface{}{
@@ -66,12 +63,12 @@ var JobResourceInfo = utils.NewResourceInfo(GROUP, VERSION,
 			{Name: "Created At", Type: "date"},
 			{Name: "Action", Type: "string"},
 			{Name: "State", Type: "string"},
-			{Name: "Repository", Type: "string"},
+			{Name: "Message", Type: "string"},
 		},
 		Reader: func(obj any) ([]interface{}, error) {
 			m, ok := obj.(*Job)
 			if !ok {
-				return nil, errors.New("expected Repository")
+				return nil, errors.New("expected Job")
 			}
 
 			return []interface{}{
@@ -79,7 +76,35 @@ var JobResourceInfo = utils.NewResourceInfo(GROUP, VERSION,
 				m.CreationTimestamp.UTC().Format(time.RFC3339),
 				m.Spec.Action,
 				m.Status.State,
-				m.Labels["repository"],
+				m.Status.Message,
+			}, nil
+		},
+	})
+
+var HistoricJobResourceInfo = utils.NewResourceInfo(GROUP, VERSION,
+	"historicjobs", "historicjob", "HistoricJob",
+	func() runtime.Object { return &HistoricJob{} },     // newObj
+	func() runtime.Object { return &HistoricJobList{} }, // newList
+	utils.TableColumns{ // Returned by `kubectl get`. Doesn't affect disk storage.
+		Definition: []metav1.TableColumnDefinition{
+			{Name: "Name", Type: "string", Format: "name"},
+			{Name: "Created At", Type: "date"},
+			{Name: "Action", Type: "string"},
+			{Name: "State", Type: "string"},
+			{Name: "Message", Type: "string"},
+		},
+		Reader: func(obj any) ([]interface{}, error) {
+			m, ok := obj.(*HistoricJob)
+			if !ok {
+				return nil, errors.New("expected HistoricJob")
+			}
+
+			return []interface{}{
+				m.Name, // may our may not be nice to read
+				m.CreationTimestamp.UTC().Format(time.RFC3339),
+				m.Spec.Action,
+				m.Status.State,
+				m.Status.Message,
 			}, nil
 		},
 	})
@@ -111,14 +136,17 @@ func AddKnownTypes(gv schema.GroupVersion, scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(gv,
 		&Repository{},
 		&RepositoryList{},
-		&HelloWorld{},
 		&WebhookResponse{},
 		&ResourceWrapper{},
 		&FileList{},
 		&HistoryList{},
 		&TestResults{},
+		&ResourceList{},
+		&ResourceStats{},
 		&Job{},
 		&JobList{},
+		&HistoricJob{},
+		&HistoricJobList{},
 	)
 	return nil
 }

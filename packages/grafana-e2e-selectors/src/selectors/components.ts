@@ -590,6 +590,9 @@ export const versionedComponents = {
       '10.2.0': 'data-testid query-tab-add-query',
       [MIN_GRAFANA_VERSION]: 'Query editor add query button',
     },
+    addQueryFromLibrary: {
+      '11.5.0': 'data-testid query-tab-add-query-from-library',
+    },
     queryGroupTopSection: {
       '11.2.0': 'data-testid query group top section',
     },
@@ -660,6 +663,12 @@ export const versionedComponents = {
     },
     newEvaluationGroupCreate: {
       '11.1.0': 'data-testid alert-rule new-evaluation-group-create-button',
+    },
+    step: {
+      '11.5.0': (stepNo: string) => `data-testid alert-rule step-${stepNo}`,
+    },
+    stepAdvancedModeSwitch: {
+      '11.5.0': (stepNo: string) => `data-testid advanced-mode-switch step-${stepNo}`,
     },
   },
   Alert: {

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,9 @@ import (
 	"github.com/grafana/grafana/pkg/services/ngalert/store"
 	"github.com/grafana/grafana/pkg/services/ngalert/tests/fakes"
 	"github.com/grafana/grafana/pkg/services/user"
+	"github.com/grafana/grafana/pkg/services/user/usertest"
 	"github.com/grafana/grafana/pkg/setting"
+	"github.com/grafana/grafana/pkg/util"
 	"github.com/grafana/grafana/pkg/util/cmputil"
 	"github.com/grafana/grafana/pkg/web"
 )
@@ -57,7 +60,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 		deleteCommands := getRecordedCommand(ruleStore)
 		require.Len(t, deleteCommands, 1)
 		cmd := deleteCommands[0]
-		actualUIDs := cmd.Params[1].([]string)
+		actualUIDs := cmd.Params[3].([]string)
 		require.Len(t, actualUIDs, len(expectedRules))
 		for _, rule := range expectedRules {
 			require.Containsf(t, actualUIDs, rule.UID, "Rule %s was expected to be deleted but it wasn't", rule.UID)
@@ -80,11 +83,11 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 		t.Run("and group argument is empty", func(t *testing.T) {
 			t.Run("return Forbidden if user is not authorized to access any group in the folder", func(t *testing.T) {
 				ruleStore := initFakeRuleStore(t)
-				ruleStore.PutRule(context.Background(), gen.With(gen.WithNamespace(folder)).GenerateManyRef(1, 5)...)
+				ruleStore.PutRule(context.Background(), gen.With(gen.WithNamespace(folder.ToFolderReference())).GenerateManyRef(1, 5)...)
 
 				request := createRequestContextWithPerms(orgID, map[int64]map[string][]string{}, nil)
 
-				response := createService(ruleStore).RouteDeleteAlertRules(request, folder.UID, "")
+				response := createService(ruleStore, nil).RouteDeleteAlertRules(request, folder.UID, "")
 				require.Equalf(t, http.StatusForbidden, response.Status(), "Expected 403 but got %d: %v", response.Status(), string(response.Body()))
 
 				require.Empty(t, getRecordedCommand(ruleStore))
@@ -93,7 +96,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 				ruleStore := initFakeRuleStore(t)
 				provisioningStore := fakes.NewFakeProvisioningStore()
 
-				folderGen := gen.With(gen.WithNamespace(folder))
+				folderGen := gen.With(gen.WithNamespace(folder.ToFolderReference()))
 
 				authorizedRulesInFolder := folderGen.With(gen.WithGroupPrefix("authz-")).GenerateManyRef(1, 5)
 
@@ -120,7 +123,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 				ruleStore := initFakeRuleStore(t)
 				provisioningStore := fakes.NewFakeProvisioningStore()
 
-				folderGen := gen.With(gen.WithNamespace(folder))
+				folderGen := gen.With(gen.WithNamespace(folder.ToFolderReference()))
 
 				provisionedRulesInFolder := folderGen.With(gen.WithSameGroup()).GenerateManyRef(1, 5)
 				err := provisioningStore.SetProvenance(context.Background(), provisionedRulesInFolder[0], orgID, models.ProvenanceAPI)
@@ -142,7 +145,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 				ruleStore := initFakeRuleStore(t)
 
 				requestCtx := createRequestContext(orgID, nil)
-				response := createService(ruleStore).RouteDeleteAlertRules(requestCtx, folder.UID, "")
+				response := createService(ruleStore, nil).RouteDeleteAlertRules(requestCtx, folder.UID, "")
 
 				require.Equalf(t, 202, response.Status(), "Expected 202 but got %d: %v", response.Status(), string(response.Body()))
 				require.Empty(t, getRecordedCommand(ruleStore))
@@ -152,7 +155,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 			t.Run("return Forbidden if user is not authorized to access the group", func(t *testing.T) {
 				ruleStore := initFakeRuleStore(t)
 
-				groupGen := gen.With(gen.WithNamespace(folder), gen.WithSameGroup())
+				groupGen := gen.With(gen.WithNamespace(folder.ToFolderReference()), gen.WithSameGroup())
 
 				authorizedRulesInGroup := groupGen.GenerateManyRef(1, 5)
 				ruleStore.PutRule(context.Background(), authorizedRulesInGroup...)
@@ -162,7 +165,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 				permissions := createPermissionsForRules(authorizedRulesInGroup, orgID)
 				requestCtx := createRequestContextWithPerms(orgID, permissions, nil)
 
-				response := createService(ruleStore).RouteDeleteAlertRules(requestCtx, folder.UID, authorizedRulesInGroup[0].RuleGroup)
+				response := createService(ruleStore, nil).RouteDeleteAlertRules(requestCtx, folder.UID, authorizedRulesInGroup[0].RuleGroup)
 
 				require.Equalf(t, http.StatusForbidden, response.Status(), "Expected 403 but got %d: %v", response.Status(), string(response.Body()))
 				deleteCommands := getRecordedCommand(ruleStore)
@@ -172,7 +175,7 @@ func TestRouteDeleteAlertRules(t *testing.T) {
 				ruleStore := initFakeRuleStore(t)
 				provisioningStore := fakes.NewFakeProvisioningStore()
 
-				groupGen := gen.With(gen.WithNamespace(folder), gen.WithSameGroup())
+				groupGen := gen.With(gen.WithNamespace(folder.ToFolderReference()), gen.WithSameGroup())
 
 				provisionedRulesInFolder := groupGen.GenerateManyRef(1, 5)
 				err := provisioningStore.SetProvenance(context.Background(), provisionedRulesInFolder[0], orgID, models.ProvenanceAPI)
@@ -201,7 +204,7 @@ func TestRouteGetNamespaceRulesConfig(t *testing.T) {
 			folder := randFolder()
 			ruleStore := fakes.NewRuleStore(t)
 			ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], folder)
-			folderGen := gen.With(gen.WithOrgID(orgID), gen.WithNamespace(folder))
+			folderGen := gen.With(gen.WithOrgID(orgID), gen.WithNamespace(folder.ToFolderReference()))
 			queryAccessRules := folderGen.GenerateManyRef(2, 6)
 			ruleStore.PutRule(context.Background(), queryAccessRules...)
 			noQueryAccessRules := folderGen.GenerateManyRef(2, 6)
@@ -214,9 +217,24 @@ func TestRouteGetNamespaceRulesConfig(t *testing.T) {
 			permissions := createPermissionsForRules(queryAccessRules, orgID)
 			req := createRequestContextWithPerms(orgID, permissions, nil)
 
-			response := createService(ruleStore).RouteGetNamespaceRulesConfig(req, folder.UID)
+			fakeUserService := usertest.NewUserServiceFake()
+			userUids := make([]string, 0)
+			for _, rule := range allRules {
+				if rule.UpdatedBy != nil {
+					userUids = append(userUids, string(*rule.UpdatedBy))
+				}
+			}
+			fakeUserServiceResponse := []*user.User{}
+			for i, uid := range userUids {
+				fakeUserServiceResponse = append(fakeUserServiceResponse, &user.User{ID: int64(i + 1), UID: uid})
+			}
+			fakeUserService.ExpectedListUsersByIdOrUid = fakeUserServiceResponse
+
+			svc := createService(ruleStore, fakeUserService)
+			response := svc.RouteGetNamespaceRulesConfig(req, folder.UID)
 
 			require.Equal(t, http.StatusAccepted, response.Status())
+			require.Equal(t, 1, len(fakeUserService.ListUsersByIdOrUidCalls)) // only one call to the user service
 			result := &apimodels.NamespaceConfigResponse{}
 			require.NoError(t, json.Unmarshal(response.Body(), result))
 			require.NotNil(t, result)
@@ -243,10 +261,23 @@ func TestRouteGetNamespaceRulesConfig(t *testing.T) {
 		folder := randFolder()
 		ruleStore := fakes.NewRuleStore(t)
 		ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], folder)
-		expectedRules := gen.With(gen.WithOrgID(orgID), gen.WithNamespace(folder)).GenerateManyRef(2, 6)
+		expectedRules := gen.With(gen.WithOrgID(orgID), gen.WithNamespace(folder.ToFolderReference())).GenerateManyRef(2, 6)
 		ruleStore.PutRule(context.Background(), expectedRules...)
 
-		svc := createService(ruleStore)
+		fakeUserService := usertest.NewUserServiceFake()
+		userUids := make([]string, 0)
+		for _, rule := range expectedRules {
+			if rule.UpdatedBy != nil {
+				userUids = append(userUids, string(*rule.UpdatedBy))
+			}
+		}
+		fakeUserServiceResponse := []*user.User{}
+		for i, uid := range userUids {
+			fakeUserServiceResponse = append(fakeUserServiceResponse, &user.User{ID: int64(i + 1), UID: uid})
+		}
+		fakeUserService.ExpectedListUsersByIdOrUid = fakeUserServiceResponse
+
+		svc := createService(ruleStore, fakeUserService)
 
 		// add provenance to the first generated rule
 		rule := &models.AlertRule{
@@ -260,6 +291,11 @@ func TestRouteGetNamespaceRulesConfig(t *testing.T) {
 		response := svc.RouteGetNamespaceRulesConfig(req, folder.UID)
 
 		require.Equal(t, http.StatusAccepted, response.Status())
+		if len(userUids) > 0 {
+			require.Equal(t, 1, len(fakeUserService.ListUsersByIdOrUidCalls))
+		} else {
+			require.Equal(t, 0, len(fakeUserService.ListUsersByIdOrUidCalls))
+		}
 		result := &apimodels.NamespaceConfigResponse{}
 		require.NoError(t, json.Unmarshal(response.Body(), result))
 		require.NotNil(t, result)
@@ -292,9 +328,25 @@ func TestRouteGetNamespaceRulesConfig(t *testing.T) {
 
 		perms := createPermissionsForRules(expectedRules, orgID)
 		req := createRequestContextWithPerms(orgID, perms, nil)
-		response := createService(ruleStore).RouteGetNamespaceRulesConfig(req, folder.UID)
+
+		fakeUserService := usertest.NewUserServiceFake()
+		userUids := make([]string, 0)
+		for _, rule := range expectedRules {
+			if rule.UpdatedBy != nil {
+				userUids = append(userUids, string(*rule.UpdatedBy))
+			}
+		}
+		fakeUserServiceResponse := []*user.User{}
+		for i, uid := range userUids {
+			fakeUserServiceResponse = append(fakeUserServiceResponse, &user.User{ID: int64(i + 1), UID: uid})
+		}
+		fakeUserService.ExpectedListUsersByIdOrUid = fakeUserServiceResponse
+
+		svc := createService(ruleStore, fakeUserService)
+		response := svc.RouteGetNamespaceRulesConfig(req, folder.UID)
 
 		require.Equal(t, http.StatusAccepted, response.Status())
+		require.Equal(t, 1, len(fakeUserService.ListUsersByIdOrUidCalls)) // only one call to the user service
 		result := &apimodels.NamespaceConfigResponse{}
 		require.NoError(t, json.Unmarshal(response.Body(), result))
 		require.NotNil(t, result)
@@ -337,6 +389,7 @@ func TestRouteGetRuleByUID(t *testing.T) {
 			gen.WithUniqueGroupIndex(), gen.WithUniqueID(),
 			gen.WithEditorSettingsSimplifiedQueryAndExpressionsSection(true),
 			gen.WithEditorSettingsSimplifiedNotificationsSection(true),
+			gen.WithKeepFiringFor(30*time.Second),
 		).GenerateManyRef(3)
 		require.Len(t, createdRules, 3)
 		ruleStore.PutRule(context.Background(), createdRules...)
@@ -345,7 +398,9 @@ func TestRouteGetRuleByUID(t *testing.T) {
 		req := createRequestContextWithPerms(orgID, perms, nil)
 
 		expectedRule := createdRules[1]
-		response := createService(ruleStore).RouteGetRuleByUID(req, expectedRule.UID)
+		fakeUserService := usertest.NewUserServiceFake()
+		svc := createService(ruleStore, fakeUserService)
+		response := svc.RouteGetRuleByUID(req, expectedRule.UID)
 
 		require.Equal(t, http.StatusOK, response.Status())
 		result := &apimodels.GettableExtendedRuleNode{}
@@ -355,8 +410,103 @@ func TestRouteGetRuleByUID(t *testing.T) {
 		require.Equal(t, expectedRule.UID, result.GrafanaManagedAlert.UID)
 		require.Equal(t, expectedRule.RuleGroup, result.GrafanaManagedAlert.RuleGroup)
 		require.Equal(t, expectedRule.Title, result.GrafanaManagedAlert.Title)
+		require.Equal(t, int64(expectedRule.KeepFiringFor), int64(*(result.KeepFiringFor)))
 		require.True(t, result.GrafanaManagedAlert.Metadata.EditorSettings.SimplifiedQueryAndExpressionsSection)
 		require.True(t, result.GrafanaManagedAlert.Metadata.EditorSettings.SimplifiedNotificationsSection)
+
+		t.Run("should resolve Updated_by with user service", func(t *testing.T) {
+			testcases := []struct {
+				desc             string
+				UpdatedBy        *models.UserUID
+				User             *user.User
+				UserServiceError error
+				UserServiceCalls []usertest.ListUsersByIdOrUidCall
+				Expected         *apimodels.UserInfo
+			}{
+				{
+					desc:             "nil if UpdatedBy is nil",
+					UpdatedBy:        nil,
+					User:             nil,
+					UserServiceError: nil,
+					UserServiceCalls: nil,
+					Expected:         nil,
+				},
+				{
+					desc:             "just UID if user is not found",
+					UpdatedBy:        util.Pointer(models.UserUID("test-uid")),
+					User:             nil,
+					UserServiceError: nil,
+					UserServiceCalls: []usertest.ListUsersByIdOrUidCall{{Uids: []string{"test-uid"}, Ids: []int64{}}},
+					Expected: &apimodels.UserInfo{
+						UID: "test-uid",
+					},
+				},
+				{
+					desc:             "just UID if error",
+					UpdatedBy:        util.Pointer(models.UserUID("test-uid")),
+					UserServiceError: errors.New("error"),
+					UserServiceCalls: []usertest.ListUsersByIdOrUidCall{{Uids: []string{"test-uid"}, Ids: []int64{}}},
+					Expected: &apimodels.UserInfo{
+						UID: "test-uid",
+					},
+				},
+				{
+					desc:      "login if it's known user",
+					UpdatedBy: util.Pointer(models.UserUID("test-uid")),
+					User: &user.User{
+						UID:   "test-uid",
+						Login: "Test",
+					},
+					UserServiceError: nil,
+					UserServiceCalls: []usertest.ListUsersByIdOrUidCall{{Uids: []string{"test-uid"}, Ids: []int64{}}},
+					Expected: &apimodels.UserInfo{
+						UID:  "test-uid",
+						Name: "Test",
+					},
+				},
+				{
+					desc:             "recognize system identifier (alerting)",
+					UpdatedBy:        &models.AlertingUserUID,
+					User:             nil,
+					UserServiceError: nil,
+					UserServiceCalls: nil,
+					Expected: &apimodels.UserInfo{
+						UID: string(models.AlertingUserUID),
+					},
+				},
+				{
+					desc:             "recognize system identifier (provisioning)",
+					UpdatedBy:        &models.FileProvisioningUserUID,
+					User:             nil,
+					UserServiceError: nil,
+					UserServiceCalls: nil,
+					Expected: &apimodels.UserInfo{
+						UID: string(models.FileProvisioningUserUID),
+					},
+				},
+			}
+			for _, tc := range testcases {
+				t.Run(tc.desc, func(t *testing.T) {
+					expectedRule.UpdatedBy = tc.UpdatedBy
+					usvc := usertest.NewUserServiceFake()
+					if tc.User != nil {
+						usvc.ExpectedListUsersByIdOrUid = []*user.User{tc.User}
+					}
+					usvc.ExpectedError = tc.UserServiceError
+					svc := createService(ruleStore, usvc)
+
+					response := svc.RouteGetRuleByUID(req, expectedRule.UID)
+
+					require.Equal(t, http.StatusOK, response.Status())
+					result := &apimodels.GettableExtendedRuleNode{}
+					require.NoError(t, json.Unmarshal(response.Body(), result))
+					require.NotNil(t, result)
+					require.Equal(t, tc.UserServiceCalls, usvc.ListUsersByIdOrUidCalls)
+
+					require.Equal(t, tc.Expected, result.GrafanaManagedAlert.UpdatedBy)
+				})
+			}
+		})
 	})
 
 	t.Run("error when fetching rule with non-existent UID", func(t *testing.T) {
@@ -374,9 +524,118 @@ func TestRouteGetRuleByUID(t *testing.T) {
 
 		perms := createPermissionsForRules(createdRules, orgID)
 		req := createRequestContextWithPerms(orgID, perms, nil)
-		response := createService(ruleStore).RouteGetRuleByUID(req, "foobar")
+		fakeUserService := usertest.NewUserServiceFake()
+		svc := createService(ruleStore, fakeUserService)
+		response := svc.RouteGetRuleByUID(req, "foobar")
 
 		require.Equal(t, http.StatusNotFound, response.Status())
+		require.Equal(t, 0, len(fakeUserService.ListUsersByIdOrUidCalls))
+	})
+}
+
+func TestRouteGetRuleVersionsByUID(t *testing.T) {
+	orgID := rand.Int63()
+	f := randFolder()
+	groupKey := models.GenerateGroupKey(orgID)
+	groupKey.NamespaceUID = f.UID
+	gen := models.RuleGen.With(models.RuleGen.WithGroupKey(groupKey), models.RuleGen.WithUniqueID())
+
+	t.Run("rule history is successfully fetched with the correct UID", func(t *testing.T) {
+		ruleStore := fakes.NewRuleStore(t)
+		ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], f)
+
+		rule := gen.GenerateRef()
+		history := gen.With(gen.WithUID(rule.UID)).GenerateManyRef(3)
+		// simulate order of the history
+		rule.ID = 100
+		for i, alertRule := range history {
+			alertRule.ID = rule.ID - int64(i) - 1
+		}
+
+		ruleStore.PutRule(context.Background(), rule)
+		ruleStore.History[rule.GUID] = append(ruleStore.History[rule.GUID], history...)
+
+		perms := createPermissionsForRules([]*models.AlertRule{rule}, orgID)
+		req := createRequestContextWithPerms(orgID, perms, nil)
+
+		svc := createService(ruleStore, nil)
+		response := svc.RouteGetRuleVersionsByUID(req, rule.UID)
+
+		require.Equal(t, http.StatusOK, response.Status())
+		var result apimodels.GettableRuleVersions
+		require.NoError(t, json.Unmarshal(response.Body(), &result))
+		require.NotNil(t, result)
+
+		require.Len(t, result, len(history)+1) // history + current version
+
+		t.Run("should be in correct order", func(t *testing.T) {
+			expectedHistory := append([]*models.AlertRule{rule}, history...)
+			for i, rul := range expectedHistory {
+				assert.Equal(t, rul.UID, result[i].GrafanaManagedAlert.UID)
+			}
+		})
+	})
+
+	t.Run("NotFound when rule does not exist", func(t *testing.T) {
+		ruleStore := fakes.NewRuleStore(t)
+		ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], f)
+		ruleKey := models.AlertRuleKey{
+			OrgID: orgID,
+			UID:   "test",
+		}
+		guid := uuid.NewString()
+		history := gen.With(gen.WithGUID(guid), gen.WithKey(ruleKey)).GenerateManyRef(3)
+		ruleStore.History[guid] = append(ruleStore.History[guid], history...) // even if history is full of records
+
+		perms := createPermissionsForRules(history, orgID)
+		req := createRequestContextWithPerms(orgID, perms, nil)
+		response := createService(ruleStore, nil).RouteGetRuleVersionsByUID(req, ruleKey.UID)
+
+		require.Equal(t, http.StatusNotFound, response.Status())
+	})
+
+	t.Run("Empty result when rule history is empty", func(t *testing.T) {
+		ruleStore := fakes.NewRuleStore(t)
+		ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], f)
+		ruleKey := models.AlertRuleKey{
+			OrgID: orgID,
+			UID:   "test",
+		}
+		guid := uuid.NewString()
+		rule := gen.With(gen.WithKey(ruleKey), gen.WithGUID(guid)).GenerateRef()
+		ruleStore.PutRule(context.Background(), rule)
+		ruleStore.History[guid] = nil
+
+		perms := createPermissionsForRules([]*models.AlertRule{rule}, orgID)
+		req := createRequestContextWithPerms(orgID, perms, nil)
+		response := createService(ruleStore, nil).RouteGetRuleVersionsByUID(req, ruleKey.UID)
+
+		require.Equal(t, http.StatusOK, response.Status())
+
+		var result apimodels.GettableRuleVersions
+		require.NoError(t, json.Unmarshal(response.Body(), &result))
+		require.Empty(t, result)
+	})
+
+	t.Run("Unauthorized if user does not have access to the current rule", func(t *testing.T) {
+		ruleStore := fakes.NewRuleStore(t)
+		anotherFolder := randFolder()
+		ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], f, anotherFolder)
+		ruleKey := models.AlertRuleKey{
+			OrgID: orgID,
+			UID:   "test",
+		}
+		guid := uuid.NewString()
+		rule := gen.With(gen.WithGUID(guid), gen.WithKey(ruleKey), gen.WithNamespaceUID(anotherFolder.UID)).GenerateRef()
+		ruleStore.PutRule(context.Background(), rule)
+		history := gen.With(gen.WithGUID(guid), gen.WithKey(ruleKey)).GenerateManyRef(3)
+		ruleStore.History[guid] = history
+
+		perms := createPermissionsForRules(history, orgID) // grant permissions to all records in history but not the rule itself
+		req := createRequestContextWithPerms(orgID, perms, nil)
+		response := createService(ruleStore, nil).RouteGetRuleVersionsByUID(req, ruleKey.UID)
+
+		require.Equal(t, http.StatusForbidden, response.Status())
 	})
 }
 
@@ -403,8 +662,12 @@ func TestRouteGetRulesConfig(t *testing.T) {
 				permissions := createPermissionsForRules(append(group1, group2[1:]...), orgID)
 				request := createRequestContextWithPerms(orgID, permissions, nil)
 
-				response := createService(ruleStore).RouteGetRulesConfig(request)
+				fakeUserService := usertest.NewUserServiceFake()
+				svc := createService(ruleStore, fakeUserService)
+				response := svc.RouteGetRulesConfig(request)
 				require.Equal(t, http.StatusOK, response.Status())
+
+				require.Equal(t, 1, len(fakeUserService.ListUsersByIdOrUidCalls)) // only one call to the user service
 
 				result := &apimodels.NamespaceConfigResponse{}
 				require.NoError(t, json.Unmarshal(response.Body(), result))
@@ -434,12 +697,15 @@ func TestRouteGetRulesConfig(t *testing.T) {
 
 		perms := createPermissionsForRules(expectedRules, orgID)
 		req := createRequestContextWithPerms(orgID, perms, nil)
-		response := createService(ruleStore).RouteGetRulesConfig(req)
+		fakeUserService := usertest.NewUserServiceFake()
+		svc := createService(ruleStore, fakeUserService)
+		response := svc.RouteGetRulesConfig(req)
 
 		require.Equal(t, http.StatusOK, response.Status())
 		result := &apimodels.NamespaceConfigResponse{}
 		require.NoError(t, json.Unmarshal(response.Body(), result))
 		require.NotNil(t, result)
+		require.Equal(t, 1, len(fakeUserService.ListUsersByIdOrUidCalls)) // only one call to the user service
 
 		models.RulesGroup(expectedRules).SortByGroupIndex()
 
@@ -481,12 +747,15 @@ func TestRouteGetRulesGroupConfig(t *testing.T) {
 		perms := createPermissionsForRules(expectedRules, orgID)
 		req := createRequestContextWithPerms(orgID, perms, nil)
 
-		response := createService(ruleStore).RouteGetRulesGroupConfig(req, folder.UID, groupKey.RuleGroup)
+		fakeUserService := usertest.NewUserServiceFake()
+		svc := createService(ruleStore, fakeUserService)
+		response := svc.RouteGetRulesGroupConfig(req, folder.UID, groupKey.RuleGroup)
 
 		require.Equal(t, http.StatusAccepted, response.Status())
 		result := &apimodels.RuleGroupConfigResponse{}
 		require.NoError(t, json.Unmarshal(response.Body(), result))
 		require.NotNil(t, result)
+		require.Equal(t, 1, len(fakeUserService.ListUsersByIdOrUidCalls)) // only one call to the user service
 
 		models.RulesGroup(expectedRules).SortByGroupIndex()
 
@@ -504,6 +773,28 @@ func TestRouteGetRulesGroupConfig(t *testing.T) {
 				require.Fail(t, fmt.Sprintf("rules are not sorted by group index. Expected: %v. Actual: %v", expectedUIDs, actualUIDs))
 			}
 		}
+	})
+	t.Run("should return a 404 when fetching a group that doesn't exist", func(t *testing.T) {
+		orgID := rand.Int63()
+		folder := randFolder()
+		ruleStore := fakes.NewRuleStore(t)
+		ruleStore.Folders[orgID] = append(ruleStore.Folders[orgID], folder)
+		groupKey := models.GenerateGroupKey(orgID)
+		groupKey.NamespaceUID = folder.UID
+
+		expectedRules := gen.With(gen.WithGroupKey(groupKey), gen.WithUniqueGroupIndex()).GenerateManyRef(5, 10)
+		ruleStore.PutRule(context.Background(), expectedRules...)
+
+		perms := createPermissionsForRules(expectedRules, orgID)
+		req := createRequestContextWithPerms(orgID, perms, nil)
+
+		fakeUserService := usertest.NewUserServiceFake()
+		svc := createService(ruleStore, fakeUserService)
+
+		response := svc.RouteGetRulesGroupConfig(req, folder.UID, "non-existent-rule-group")
+
+		require.Equal(t, http.StatusNotFound, response.Status())
+		require.Equal(t, 0, len(fakeUserService.ListUsersByIdOrUidCalls))
 	})
 }
 
@@ -640,12 +931,16 @@ func TestValidateQueries(t *testing.T) {
 }
 
 func createServiceWithProvenanceStore(store *fakes.RuleStore, provenanceStore provisioning.ProvisioningStore) *RulerSrv {
-	svc := createService(store)
+	svc := createService(store, nil)
 	svc.provenanceStore = provenanceStore
 	return svc
 }
 
-func createService(store *fakes.RuleStore) *RulerSrv {
+func createService(store *fakes.RuleStore, _userService *usertest.FakeUserService) *RulerSrv {
+	userService := _userService
+	if _userService == nil {
+		userService = usertest.NewUserServiceFake()
+	}
 	return &RulerSrv{
 		xactManager:     store,
 		store:           store,
@@ -659,6 +954,7 @@ func createService(store *fakes.RuleStore) *RulerSrv {
 		amConfigStore:  &fakeAMRefresher{},
 		amRefresher:    &fakeAMRefresher{},
 		featureManager: featuremgmt.WithFeatures(featuremgmt.FlagGrafanaManagedRecordingRules),
+		userService:    userService,
 	}
 }
 

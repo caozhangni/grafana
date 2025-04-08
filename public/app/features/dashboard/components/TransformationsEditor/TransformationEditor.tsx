@@ -1,26 +1,18 @@
 import { css } from '@emotion/css';
-import { createElement, useEffect, useMemo, useState } from 'react';
-import { mergeMap } from 'rxjs/operators';
+import { createElement, useMemo } from 'react';
 
-import {
-  DataFrame,
-  DataTransformerConfig,
-  GrafanaTheme2,
-  transformDataFrame,
-  TransformerRegistryItem,
-  getFrameMatchers,
-  DataTransformContext,
-} from '@grafana/data';
+import { DataFrame, DataTransformerConfig, GrafanaTheme2, TransformerRegistryItem } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
-import { getTemplateSrv } from '@grafana/runtime';
 import { Icon, JSONFormatter, useStyles2, Drawer } from '@grafana/ui';
+import { t, Trans } from 'app/core/internationalization';
 
 import { TransformationsEditorTransformation } from './types';
 
 interface TransformationEditorProps {
+  input: DataFrame[];
+  output: DataFrame[];
   debugMode?: boolean;
   index: number;
-  data: DataFrame[];
   uiConfig: TransformerRegistryItem;
   configs: TransformationsEditorTransformation[];
   onChange: (index: number, config: DataTransformerConfig) => void;
@@ -28,44 +20,17 @@ interface TransformationEditorProps {
 }
 
 export const TransformationEditor = ({
+  input,
+  output,
   debugMode,
   index,
-  data,
   uiConfig,
   configs,
   onChange,
   toggleShowDebug,
 }: TransformationEditorProps) => {
   const styles = useStyles2(getStyles);
-  const [input, setInput] = useState<DataFrame[]>([]);
-  const [output, setOutput] = useState<DataFrame[]>([]);
   const config = useMemo(() => configs[index], [configs, index]);
-
-  useEffect(() => {
-    const config = configs[index].transformation;
-    const matcher = config.filter?.options ? getFrameMatchers(config.filter) : undefined;
-    const inputTransforms = configs.slice(0, index).map((t) => t.transformation);
-    const outputTransforms = configs.slice(index, index + 1).map((t) => t.transformation);
-
-    const ctx: DataTransformContext = {
-      interpolate: (v: string) => getTemplateSrv().replace(v),
-    };
-
-    const inputSubscription = transformDataFrame(inputTransforms, data, ctx).subscribe((v) => {
-      if (matcher) {
-        v = data.filter((v) => matcher(v));
-      }
-      setInput(v);
-    });
-    const outputSubscription = transformDataFrame(inputTransforms, data, ctx)
-      .pipe(mergeMap((before) => transformDataFrame(outputTransforms, before, ctx)))
-      .subscribe(setOutput);
-
-    return function unsubscribe() {
-      inputSubscription.unsubscribe();
-      outputSubscription.unsubscribe();
-    };
-  }, [index, data, configs]);
 
   const editor = useMemo(
     () =>
@@ -86,13 +51,19 @@ export const TransformationEditor = ({
     <div data-testid={selectors.components.TransformTab.transformationEditor(uiConfig.name)}>
       {editor}
       {debugMode && (
-        <Drawer title="Debug transformation" subtitle={uiConfig.name} onClose={toggleShowDebug}>
+        <Drawer
+          title={t('dashboard.transformation-editor.title-debug-transformation', 'Debug transformation')}
+          subtitle={uiConfig.name}
+          onClose={toggleShowDebug}
+        >
           <div
             className={styles.debugWrapper}
             data-testid={selectors.components.TransformTab.transformationEditorDebugger(uiConfig.name)}
           >
             <div className={styles.debug}>
-              <div className={styles.debugTitle}>Input data</div>
+              <div className={styles.debugTitle}>
+                <Trans i18nKey="dashboard.transformation-editor.input-data">Input data</Trans>
+              </div>
               <div className={styles.debugJson}>
                 <JSONFormatter json={input} />
               </div>
@@ -101,7 +72,9 @@ export const TransformationEditor = ({
               <Icon name="arrow-right" />
             </div>
             <div className={styles.debug}>
-              <div className={styles.debugTitle}>Output data</div>
+              <div className={styles.debugTitle}>
+                <Trans i18nKey="dashboard.transformation-editor.output-data">Output data</Trans>
+              </div>
               <div className={styles.debugJson}>{output && <JSONFormatter json={output} />}</div>
             </div>
           </div>

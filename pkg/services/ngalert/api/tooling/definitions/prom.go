@@ -89,6 +89,8 @@ type RuleGroup struct {
 	Name string `json:"name"`
 	// required: true
 	File string `json:"file"`
+	// required: true
+	FolderUID string `json:"folderUid"`
 	// In order to preserve rule ordering, while exposing type (alerting or recording)
 	// specific properties, both alerting and recording rules are exposed in the
 	// same array.
@@ -150,8 +152,9 @@ type AlertingRule struct {
 	// required: true
 	Name string `json:"name,omitempty"`
 	// required: true
-	Query    string  `json:"query,omitempty"`
-	Duration float64 `json:"duration,omitempty"`
+	Query         string  `json:"query,omitempty"`
+	Duration      float64 `json:"duration,omitempty"`
+	KeepFiringFor float64 `json:"keepFiringFor,omitempty"`
 	// required: true
 	Annotations promlabels.Labels `json:"annotations,omitempty"`
 	// required: true
@@ -166,7 +169,11 @@ type AlertingRule struct {
 // swagger:model
 type Rule struct {
 	// required: true
+	UID string `json:"uid"`
+	// required: true
 	Name string `json:"name"`
+	// required: true
+	FolderUID string `json:"folderUid"`
 	// required: true
 	Query  string            `json:"query"`
 	Labels promlabels.Labels `json:"labels,omitempty"`

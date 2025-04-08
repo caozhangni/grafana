@@ -24,7 +24,6 @@ export enum PluginIconName {
   datasource = 'database',
   panel = 'credit-card',
   renderer = 'capture',
-  secretsmanager = 'key-skeleton-alt',
 }
 
 export interface CatalogPlugin extends WithAccessControlMetadata {
@@ -64,6 +63,11 @@ export interface CatalogPlugin extends WithAccessControlMetadata {
   isUpdatingFromInstance?: boolean;
   iam?: IdentityAccessManagement;
   isProvisioned?: boolean;
+  url?: string;
+}
+export interface Screenshots {
+  path: string;
+  name: string;
 }
 
 export interface CatalogPluginDetails {
@@ -79,6 +83,12 @@ export interface CatalogPluginDetails {
   iam?: IdentityAccessManagement;
   changelog?: string;
   lastCommitDate?: string;
+  licenseUrl?: string;
+  documentationUrl?: string;
+  raiseAnIssueUrl?: string;
+  signatureType?: PluginSignatureType;
+  signature?: PluginSignatureStatus;
+  screenshots?: Screenshots[] | null;
 }
 
 export interface CatalogPluginInfo {
@@ -107,6 +117,7 @@ export type RemotePlugin = {
         name: string;
         url: string;
       }>;
+      screenshots?: Screenshots[] | null;
     };
   };
   links: Array<{ rel: string; href: string }>;
@@ -141,6 +152,9 @@ export type RemotePlugin = {
   versionStatus: string;
   angularDetected?: boolean;
   lastCommitDate?: string;
+  licenseUrl?: string;
+  documentationUrl?: string;
+  raiseAnIssueUrl?: string;
 };
 
 // The available status codes on GCOM are available here:
@@ -214,6 +228,7 @@ export interface Build {
 export interface Version {
   version: string;
   createdAt: string;
+  updatedAt?: string;
   isCompatible: boolean;
   grafanaDependency: string | null;
   angularDetected?: boolean;
@@ -246,6 +261,7 @@ export enum PluginStatus {
   UNINSTALL = 'UNINSTALL',
   UPDATE = 'UPDATE',
   REINSTALL = 'REINSTALL',
+  DOWNGRADE = 'DOWNGRADE',
 }
 
 export enum PluginTabLabels {
@@ -257,6 +273,8 @@ export enum PluginTabLabels {
   IAM = 'IAM',
   CHANGELOG = 'Changelog',
   PLUGINDETAILS = 'Plugin details',
+  DATASOURCE_CONNECTIONS = 'Data source connections',
+  SCREENSHOTS = 'Screenshots',
 }
 
 export enum PluginTabIds {
@@ -268,6 +286,8 @@ export enum PluginTabIds {
   IAM = 'iam',
   CHANGELOG = 'changelog',
   PLUGINDETAILS = 'right-panel',
+  DATASOURCE_CONNECTIONS = 'datasource-connections',
+  SCREENSHOTS = 'screenshots',
 }
 
 export enum RequestStatus {

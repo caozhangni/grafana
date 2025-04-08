@@ -1,43 +1,113 @@
 import { Factory } from 'fishery';
+import { uniqueId } from 'lodash';
 
 import { DataSourceInstanceSettings, PluginType } from '@grafana/data';
-import { config, setDataSourceSrv } from '@grafana/runtime';
+import { config } from '@grafana/runtime';
+import { FolderDTO } from 'app/types';
 import {
+  GrafanaRecordingRuleDefinition,
   PromAlertingRuleDTO,
   PromAlertingRuleState,
   PromRuleGroupDTO,
   PromRuleType,
+  RulerAlertingRuleDTO,
+  RulerCloudRuleDTO,
+  RulerGrafanaRuleDTO,
+  RulerRecordingRuleDTO,
+  RulerRuleGroupDTO,
 } from 'app/types/unified-alerting-dto';
 
-import { MockDataSourceSrv } from '../../mocks';
+import { setupDataSources } from '../../testSetup/datasources';
 import { DataSourceType } from '../../utils/datasource';
+import { namespaces } from '../mimirRulerApi';
 
-const ruleFactory = Factory.define<PromAlertingRuleDTO>(({ sequence }) => ({
-  name: `test-rule-${sequence}`,
+import { MIMIR_DATASOURCE_UID, PROMETHEUS_DATASOURCE_UID } from './constants';
+
+interface PromRuleFactoryTransientParams {
+  namePrefix?: string;
+}
+
+class PromRuleFactory extends Factory<PromAlertingRuleDTO, PromRuleFactoryTransientParams> {
+  fromRuler(rulerRule: RulerAlertingRuleDTO) {
+    return this.params({
+      name: rulerRule.alert,
+      query: rulerRule.expr,
+      type: PromRuleType.Alerting,
+      labels: rulerRule.labels,
+      annotations: rulerRule.annotations,
+    });
+  }
+}
+
+const prometheusRuleFactory = PromRuleFactory.define(({ sequence, transientParams: { namePrefix } }) => ({
+  name: `${namePrefix ? `${namePrefix}-` : ''}test-rule-${sequence}`,
   query: 'test-query',
   state: PromAlertingRuleState.Inactive,
-  type: PromRuleType.Alerting,
+  type: PromRuleType.Alerting as const,
   health: 'ok',
-  labels: { team: 'infra' },
+  labels: {},
+  annotations: {},
 }));
 
-const groupFactory = Factory.define<PromRuleGroupDTO>(({ sequence }) => {
+const prometheusRuleGroupFactory = Factory.define<PromRuleGroupDTO>(({ sequence }) => {
   const group = {
     name: `test-group-${sequence}`,
     file: `test-namespace`,
     interval: 10,
-    rules: ruleFactory.buildList(10),
+    rules: prometheusRuleFactory.buildList(10),
   };
 
-  ruleFactory.rewindSequence();
+  prometheusRuleFactory.rewindSequence();
 
   return group;
 });
 
-const dataSourceFactory = Factory.define<DataSourceInstanceSettings>(({ sequence, params, afterBuild }) => {
+const rulerAlertingRuleFactory = Factory.define<RulerAlertingRuleDTO>(({ sequence }) => ({
+  alert: `test-rule-${sequence}`,
+  expr: 'up = 1',
+  labels: { severity: 'warning' },
+  annotations: { summary: 'test alert' },
+}));
+
+const rulerRecordingRuleFactory = Factory.define<RulerRecordingRuleDTO>(({ sequence }) => ({
+  record: `ruler-recording-rule-${sequence}`,
+  expr: 'vector(0)',
+  labels: {},
+}));
+
+const rulerGroupFactory = Factory.define<RulerRuleGroupDTO<RulerCloudRuleDTO>, { addToNamespace: string }>(
+  ({ sequence, transientParams, afterBuild }) => {
+    afterBuild((group) => {
+      if (transientParams.addToNamespace) {
+        if (!namespaces[transientParams.addToNamespace]) {
+          namespaces[transientParams.addToNamespace] = [];
+        }
+        namespaces[transientParams.addToNamespace].push(group);
+      }
+    });
+
+    return {
+      name: `test-group-${sequence}`,
+      interval: '1m',
+      rules: rulerAlertingRuleFactory.buildList(3),
+    };
+  }
+);
+
+class DataSourceFactory extends Factory<DataSourceInstanceSettings> {
+  vanillaPrometheus() {
+    return this.params({ uid: PROMETHEUS_DATASOURCE_UID, name: 'Prometheus' });
+  }
+
+  mimir() {
+    return this.params({ uid: MIMIR_DATASOURCE_UID, name: 'Mimir' });
+  }
+}
+
+const dataSourceFactory = DataSourceFactory.define(({ sequence, params, afterBuild }) => {
   afterBuild((dataSource) => {
     config.datasources[dataSource.name] = dataSource;
-    setDataSourceSrv(new MockDataSourceSrv(config.datasources));
+    setupDataSources(...Object.values(config.datasources));
   });
 
   const uid = params.uid ?? `mock-ds-${sequence}`;
@@ -46,7 +116,7 @@ const dataSourceFactory = Factory.define<DataSourceInstanceSettings>(({ sequence
     uid,
     type: DataSourceType.Prometheus,
     name: `Prometheus-${uid}`,
-    access: 'proxy',
+    access: 'proxy' as const,
     url: `/api/datasources/proxy/uid/${uid}`,
     jsonData: {},
     meta: {
@@ -72,8 +142,55 @@ const dataSourceFactory = Factory.define<DataSourceInstanceSettings>(({ sequence
   };
 });
 
+const grafanaFolderFactory = Factory.define<FolderDTO>(({ sequence }) => ({
+  id: sequence,
+  uid: uniqueId(),
+  title: `Mock Folder ${sequence}`,
+  version: 1,
+  url: '',
+  canAdmin: true,
+  canDelete: true,
+  canEdit: true,
+  canSave: true,
+  created: '',
+  createdBy: '',
+  hasAcl: false,
+  updated: '',
+  updatedBy: '',
+}));
+
+const grafanaRecordingRule = Factory.define<RulerGrafanaRuleDTO<GrafanaRecordingRuleDefinition>>(({ sequence }) => ({
+  grafana_alert: {
+    id: String(sequence),
+    uid: uniqueId(),
+    title: `Recording rule ${sequence}`,
+    namespace_uid: 'test-namespace',
+    rule_group: 'test-group',
+    condition: 'A',
+    data: [],
+    record: {
+      from: 'vector(1)',
+      metric: `recording_rule_${sequence}`,
+    },
+  },
+  for: '5m',
+  labels: { 'label-key-1': 'label-value-1' },
+  annotations: {}, // @TODO recording rules don't have annotations, we need to fix this type definition
+}));
+
 export const alertingFactory = {
-  group: groupFactory,
-  rule: ruleFactory,
+  folder: grafanaFolderFactory,
+  prometheus: {
+    group: prometheusRuleGroupFactory,
+    rule: prometheusRuleFactory,
+  },
+  ruler: {
+    group: rulerGroupFactory,
+    alertingRule: rulerAlertingRuleFactory,
+    recordingRule: rulerRecordingRuleFactory,
+    grafana: {
+      recordingRule: grafanaRecordingRule,
+    },
+  },
   dataSource: dataSourceFactory,
 };

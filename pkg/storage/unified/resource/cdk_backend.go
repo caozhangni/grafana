@@ -21,6 +21,9 @@ import (
 	_ "gocloud.dev/blob/memblob"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/grafana/grafana/pkg/apimachinery/utils"
+	"github.com/grafana/grafana/pkg/storage/unified/backend"
 )
 
 type CDKBackendOptions struct {
@@ -114,6 +117,17 @@ func (s *cdkBackend) GetResourceStats(ctx context.Context, namespace string, min
 }
 
 func (s *cdkBackend) WriteEvent(ctx context.Context, event WriteEvent) (rv int64, err error) {
+	if event.Type == WatchEvent_ADDED {
+		// ReadResource deals with deleted values (i.e. a file exists but has generation -999).
+		resp := s.ReadResource(ctx, &ReadRequest{Key: event.Key})
+		if resp.Error != nil && resp.Error.Code != http.StatusNotFound {
+			return 0, GetError(resp.Error)
+		}
+		if resp.Value != nil {
+			return 0, backend.ErrResourceAlreadyExists
+		}
+	}
+
 	// Scope the lock
 	{
 		s.mutex.Lock()
@@ -129,7 +143,10 @@ func (s *cdkBackend) WriteEvent(ctx context.Context, event WriteEvent) (rv int64
 	if s.stream != nil {
 		go func() {
 			write := &WrittenEvent{
-				WriteEvent:      event,
+				Type:            event.Type,
+				Key:             event.Key,
+				PreviousRV:      event.PreviousRV,
+				Value:           event.Value,
 				Timestamp:       time.Now().UnixMilli(),
 				ResourceVersion: rv,
 			}
@@ -192,7 +209,7 @@ func (s *cdkBackend) ReadResource(ctx context.Context, req *ReadRequest) *Backen
 			err = nil
 		}
 	}
-	if err == nil && isDeletedMarker(raw) {
+	if err == nil && isDeletedValue(raw) {
 		raw = nil
 	}
 	if raw == nil {
@@ -206,11 +223,11 @@ func (s *cdkBackend) ReadResource(ctx context.Context, req *ReadRequest) *Backen
 	}
 }
 
-func isDeletedMarker(raw []byte) bool {
-	if bytes.Contains(raw, []byte(`"DeletedMarker"`)) {
+func isDeletedValue(raw []byte) bool {
+	if bytes.Contains(raw, []byte(`"generation":-999`)) {
 		tmp := &unstructured.Unstructured{}
 		err := tmp.UnmarshalJSON(raw)
-		if err == nil && tmp.GetKind() == "DeletedMarker" {
+		if err == nil && tmp.GetGeneration() == utils.DeletedGeneration {
 			return true
 		}
 	}
@@ -218,6 +235,10 @@ func isDeletedMarker(raw []byte) bool {
 }
 
 func (s *cdkBackend) ListIterator(ctx context.Context, req *ListRequest, cb func(ListIterator) error) (int64, error) {
+	if req.Source != ListRequest_STORE {
+		return 0, fmt.Errorf("listing from history not supported in CDK backend")
+	}
+
 	resources, err := buildTree(ctx, s, req.Options.Key)
 	if err != nil {
 		return 0, err
@@ -286,7 +307,7 @@ func (c *cdkListIterator) Next() bool {
 			c.err = err
 			return false
 		}
-		if !isDeletedMarker(raw) {
+		if !isDeletedValue(raw) {
 			c.currentRV = latest.rv
 			c.currentKey = latest.key
 			c.currentVal = raw
@@ -312,6 +333,11 @@ func (c *cdkListIterator) Value() []byte {
 
 // ContinueToken implements ListIterator.
 func (c *cdkListIterator) ContinueToken() string {
+	return fmt.Sprintf("index:%d/key:%s", c.index, c.currentKey)
+}
+
+// ContinueTokenWithCurrentRV implements ListIterator.
+func (c *cdkListIterator) ContinueTokenWithCurrentRV() string {
 	return fmt.Sprintf("index:%d/key:%s", c.index, c.currentKey)
 }
 

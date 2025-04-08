@@ -13,10 +13,10 @@ import {
   SceneVariableSet,
 } from '@grafana/scenes';
 import { Box, Icon, LinkButton, Stack, Tab, TabsBar, ToolbarButton, Tooltip, useStyles2 } from '@grafana/ui';
+import { t, Trans } from 'app/core/internationalization';
 
 import { getExploreUrl } from '../../core/utils/explore';
 
-import { buildMetricOverviewScene } from './ActionTabs/MetricOverviewScene';
 import { buildRelatedMetricsScene } from './ActionTabs/RelatedMetricsScene';
 import { buildLabelBreakdownActionScene } from './Breakdown/LabelBreakdownScene';
 import { MAIN_PANEL_MAX_HEIGHT, MAIN_PANEL_MIN_HEIGHT, MetricGraphScene } from './MetricGraphScene';
@@ -39,11 +39,12 @@ import {
 } from './shared';
 import { getDataSource, getTrailFor, getUrlForTrail } from './utils';
 
-const relatedLogsFeatureEnabled = config.featureToggles.exploreMetricsRelatedLogs;
+const { exploreMetricsRelatedLogs } = config.featureToggles;
 
 export interface MetricSceneState extends SceneObjectState {
   body: MetricGraphScene;
   metric: string;
+  nativeHistogram?: boolean;
   actionView?: string;
 
   autoQuery: AutoQueryInfo;
@@ -54,7 +55,7 @@ export class MetricScene extends SceneObjectBase<MetricSceneState> {
   protected _urlSync = new SceneObjectUrlSyncConfig(this, { keys: ['actionView'] });
 
   public constructor(state: MakeOptional<MetricSceneState, 'body' | 'autoQuery'>) {
-    const autoQuery = state.autoQuery ?? getAutoQueriesForMetric(state.metric);
+    const autoQuery = state.autoQuery ?? getAutoQueriesForMetric(state.metric, state.nativeHistogram);
     super({
       $variables: state.$variables ?? getVariableSet(state.metric),
       body: state.body ?? new MetricGraphScene({}),
@@ -68,7 +69,7 @@ export class MetricScene extends SceneObjectBase<MetricSceneState> {
 
   private _onActivate() {
     if (this.state.actionView === undefined) {
-      this.setActionView('overview');
+      this.setActionView('breakdown');
     }
 
     if (config.featureToggles.enableScopesInMetricsExplore) {
@@ -123,7 +124,6 @@ export class MetricScene extends SceneObjectBase<MetricSceneState> {
 }
 
 const actionViewsDefinitions: ActionViewDefinition[] = [
-  { displayName: 'Overview', value: 'overview', getScene: buildMetricOverviewScene },
   { displayName: 'Breakdown', value: 'breakdown', getScene: buildLabelBreakdownActionScene },
   {
     displayName: 'Related metrics',
@@ -133,7 +133,7 @@ const actionViewsDefinitions: ActionViewDefinition[] = [
   },
 ];
 
-if (relatedLogsFeatureEnabled) {
+if (exploreMetricsRelatedLogs) {
   actionViewsDefinitions.push({
     displayName: 'Related logs',
     value: 'related_logs',
@@ -183,20 +183,23 @@ export class MetricActionBar extends SceneObjectBase<MetricActionBarState> {
           <Stack gap={1}>
             <ToolbarButton
               variant={'canvas'}
-              tooltip="Remove existing metric and choose a new metric"
+              tooltip={t(
+                'trails.metric-action-bar.tooltip-remove-existing-metric-choose',
+                'Remove existing metric and choose a new metric'
+              )}
               onClick={() => {
                 reportExploreMetrics('selected_metric_action_clicked', { action: 'unselect' });
                 trail.publishEvent(new MetricSelectedEvent(undefined));
               }}
             >
-              Select new metric
+              <Trans i18nKey="trails.metric-action-bar.select-new-metric">Select new metric</Trans>
             </ToolbarButton>
             <ToolbarButton
               variant={'canvas'}
               icon="compass"
-              tooltip="Open in explore"
+              tooltip={t('trails.metric-action-bar.tooltip-open-in-explore', 'Open in explore')}
               onClick={model.openExploreLink}
-            ></ToolbarButton>
+            />
             <ShareTrailButton trail={trail} />
             <ToolbarButton
               variant={'canvas'}
@@ -216,7 +219,7 @@ export class MetricActionBar extends SceneObjectBase<MetricActionBarState> {
                 variant={'secondary'}
                 onClick={() => reportExploreMetrics('selected_metric_action_clicked', { action: 'open_from_embedded' })}
               >
-                Open
+                <Trans i18nKey="trails.metric-action-bar.open">Open</Trans>
               </LinkButton>
             )}
           </Stack>

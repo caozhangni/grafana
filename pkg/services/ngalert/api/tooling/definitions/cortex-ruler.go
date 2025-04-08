@@ -20,6 +20,30 @@ import (
 //       403: ForbiddenError
 //       404: description: Not found.
 
+// swagger:route Delete /ruler/grafana/api/v1/trash/rule/guid/{RuleGUID} ruler RouteDeleteRuleFromTrashByGUID
+//
+// Permanently delete a rule from trash by GUID
+//
+//     Produces:
+//     - application/json
+//
+//     Responses:
+//       202: Ack
+//       403: ForbiddenError
+//       404: description: Not found.
+
+// swagger:route Get /ruler/grafana/api/v1/rule/{RuleUID}/versions ruler RouteGetRuleVersionsByUID
+//
+// Get rule versions by UID
+//
+//     Produces:
+//     - application/json
+//
+//     Responses:
+//       202: GettableRuleVersions
+//       403: ForbiddenError
+//       404: description: Not found.
+
 // swagger:route Get /ruler/grafana/api/v1/rules ruler RouteGetGrafanaRulesConfig
 //
 // List rule groups
@@ -155,6 +179,7 @@ import (
 //     Responses:
 //       202: RuleGroupConfigResponse
 //       403: ForbiddenError
+//		 404: NotFound
 
 // swagger:route Get /ruler/{DatasourceUID}/api/v1/rules/{Namespace}/{Groupname} ruler RouteGetRulegGroupConfig
 //
@@ -218,10 +243,16 @@ type PathGetRulesParams struct {
 	PanelID int64
 }
 
-// swagger:parameters RouteGetRuleByUID
+// swagger:parameters RouteGetRuleByUID RouteGetRuleVersionsByUID
 type PathGetRuleByUIDParams struct {
 	// in: path
 	RuleUID string
+}
+
+// swagger:parameters RouteDeleteRuleFromTrashByGUID
+type PathDeleteRuleFromTrashByGUIDParams struct {
+	// in: path
+	RuleGUID string
 }
 
 // swagger:model
@@ -289,6 +320,9 @@ func (c *PostableRuleGroupConfig) validate() error {
 	}
 	return nil
 }
+
+// swagger:model
+type GettableRuleVersions []GettableExtendedRuleNode
 
 // swagger:model
 type GettableRuleGroupConfig struct {
@@ -364,7 +398,7 @@ const (
 type PostableExtendedRuleNode struct {
 	// note: this works with yaml v3 but not v2 (the inline tag isn't accepted on pointers in v2)
 	*ApiRuleNode `yaml:",inline"`
-	//GrafanaManagedAlert yaml.Node `yaml:"grafana_alert,omitempty"`
+	// GrafanaManagedAlert yaml.Node `yaml:"grafana_alert,omitempty"`
 	GrafanaManagedAlert *PostableGrafanaRule `yaml:"grafana_alert,omitempty" json:"grafana_alert,omitempty"`
 }
 
@@ -401,7 +435,7 @@ func (n *PostableExtendedRuleNode) validate() error {
 type GettableExtendedRuleNode struct {
 	// note: this works with yaml v3 but not v2 (the inline tag isn't accepted on pointers in v2)
 	*ApiRuleNode `yaml:",inline"`
-	//GrafanaManagedAlert yaml.Node `yaml:"grafana_alert,omitempty"`
+	// GrafanaManagedAlert yaml.Node `yaml:"grafana_alert,omitempty"`
 	GrafanaManagedAlert *GettableGrafanaRule `yaml:"grafana_alert,omitempty" json:"grafana_alert,omitempty"`
 }
 
@@ -517,6 +551,10 @@ type Record struct {
 	// required: true
 	// example: A
 	From string `json:"from" yaml:"from"`
+	// Which data source should be used to write the output of the recording rule, specified by UID.
+	// required: false
+	// example: my-prom
+	TargetDatasourceUID string `json:"target_datasource_uid,omitempty" yaml:"target_datasource_uid,omitempty"`
 }
 
 // swagger:model
@@ -531,28 +569,41 @@ type PostableGrafanaRule struct {
 	NotificationSettings *AlertRuleNotificationSettings `json:"notification_settings" yaml:"notification_settings"`
 	Record               *Record                        `json:"record" yaml:"record"`
 	Metadata             *AlertRuleMetadata             `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	// Number of consecutive evaluation intervals with no data for a dimension must pass
+	// before the alert state is considered stale and automatically resolved.
+	// If set to 0, the value is reset to the default.
+	// required: false
+	// example: 3
+	MissingSeriesEvalsToResolve *int `json:"missing_series_evals_to_resolve,omitempty" yaml:"missing_series_evals_to_resolve,omitempty"`
 }
 
 // swagger:model
 type GettableGrafanaRule struct {
-	ID                   int64                          `json:"id" yaml:"id"`
-	OrgID                int64                          `json:"orgId" yaml:"orgId"`
-	Title                string                         `json:"title" yaml:"title"`
-	Condition            string                         `json:"condition" yaml:"condition"`
-	Data                 []AlertQuery                   `json:"data" yaml:"data"`
-	Updated              time.Time                      `json:"updated" yaml:"updated"`
-	IntervalSeconds      int64                          `json:"intervalSeconds" yaml:"intervalSeconds"`
-	Version              int64                          `json:"version" yaml:"version"`
-	UID                  string                         `json:"uid" yaml:"uid"`
-	NamespaceUID         string                         `json:"namespace_uid" yaml:"namespace_uid"`
-	RuleGroup            string                         `json:"rule_group" yaml:"rule_group"`
-	NoDataState          NoDataState                    `json:"no_data_state" yaml:"no_data_state"`
-	ExecErrState         ExecutionErrorState            `json:"exec_err_state" yaml:"exec_err_state"`
-	Provenance           Provenance                     `json:"provenance,omitempty" yaml:"provenance,omitempty"`
-	IsPaused             bool                           `json:"is_paused" yaml:"is_paused"`
-	NotificationSettings *AlertRuleNotificationSettings `json:"notification_settings,omitempty" yaml:"notification_settings,omitempty"`
-	Record               *Record                        `json:"record,omitempty" yaml:"record,omitempty"`
-	Metadata             *AlertRuleMetadata             `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Title                       string                         `json:"title" yaml:"title"`
+	Condition                   string                         `json:"condition" yaml:"condition"`
+	Data                        []AlertQuery                   `json:"data" yaml:"data"`
+	Updated                     time.Time                      `json:"updated" yaml:"updated"`
+	UpdatedBy                   *UserInfo                      `json:"updated_by" yaml:"updated_by"`
+	IntervalSeconds             int64                          `json:"intervalSeconds" yaml:"intervalSeconds"`
+	Version                     int64                          `json:"version" yaml:"version"`
+	UID                         string                         `json:"uid" yaml:"uid"`
+	NamespaceUID                string                         `json:"namespace_uid" yaml:"namespace_uid"`
+	RuleGroup                   string                         `json:"rule_group" yaml:"rule_group"`
+	NoDataState                 NoDataState                    `json:"no_data_state" yaml:"no_data_state"`
+	ExecErrState                ExecutionErrorState            `json:"exec_err_state" yaml:"exec_err_state"`
+	Provenance                  Provenance                     `json:"provenance,omitempty" yaml:"provenance,omitempty"`
+	IsPaused                    bool                           `json:"is_paused" yaml:"is_paused"`
+	NotificationSettings        *AlertRuleNotificationSettings `json:"notification_settings,omitempty" yaml:"notification_settings,omitempty"`
+	Record                      *Record                        `json:"record,omitempty" yaml:"record,omitempty"`
+	Metadata                    *AlertRuleMetadata             `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	GUID                        string                         `json:"guid" yaml:"guid"`
+	MissingSeriesEvalsToResolve *int                           `json:"missing_series_evals_to_resolve,omitempty" yaml:"missing_series_evals_to_resolve,omitempty"`
+}
+
+// UserInfo represents user-related information, including a unique identifier and a name.
+type UserInfo struct {
+	UID  string `json:"uid"`
+	Name string `json:"name"`
 }
 
 // AlertQuery represents a single query associated with an alert definition.

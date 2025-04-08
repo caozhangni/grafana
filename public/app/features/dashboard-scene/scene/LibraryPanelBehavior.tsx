@@ -1,5 +1,4 @@
 import { PanelPlugin, PanelProps } from '@grafana/data';
-import { config } from '@grafana/runtime';
 import { SceneObject, SceneObjectBase, SceneObjectState, sceneUtils, VizPanel, VizPanelState } from '@grafana/scenes';
 import { LibraryPanel } from '@grafana/schema';
 import { Stack } from '@grafana/ui';
@@ -13,12 +12,9 @@ import { VizPanelLinks, VizPanelLinksMenu } from './PanelLinks';
 import { panelLinksBehavior } from './PanelMenuBehavior';
 import { PanelNotices } from './PanelNotices';
 import { PanelTimeRange } from './PanelTimeRange';
-import { AngularDeprecation } from './angular/AngularDeprecation';
 import { DashboardGridItem } from './layout-default/DashboardGridItem';
 
 export interface LibraryPanelBehaviorState extends SceneObjectState {
-  // Library panels use title from dashboard JSON's panel model, not from library panel definition, hence we pass it.
-  title?: string;
   uid: string;
   name: string;
   isLoaded?: boolean;
@@ -54,9 +50,7 @@ export class LibraryPanelBehavior extends SceneObjectBase<LibraryPanelBehaviorSt
     const libPanelModel = new PanelModel(libPanel.model);
 
     const titleItems: SceneObject[] = [];
-    if (config.featureToggles.angularDeprecationUI) {
-      titleItems.push(new AngularDeprecation());
-    }
+
     titleItems.push(
       new VizPanelLinks({
         rawLinks: libPanelModel.links,
@@ -66,7 +60,7 @@ export class LibraryPanelBehavior extends SceneObjectBase<LibraryPanelBehaviorSt
     titleItems.push(new PanelNotices());
 
     const vizPanelState: VizPanelState = {
-      title: libPanelModel.title,
+      title: vizPanel.state.title ?? libPanelModel.title,
       options: libPanelModel.options ?? {},
       fieldConfig: libPanelModel.fieldConfig,
       pluginId: libPanelModel.type,
@@ -88,7 +82,7 @@ export class LibraryPanelBehavior extends SceneObjectBase<LibraryPanelBehaviorSt
     vizPanel.setState(vizPanelState);
     vizPanel.changePluginType(libPanelModel.type, vizPanelState.options, vizPanelState.fieldConfig);
 
-    this.setState({ _loadedPanel: libPanel, isLoaded: true, name: libPanel.name, title: libPanelModel.title });
+    this.setState({ _loadedPanel: libPanel, isLoaded: true, name: libPanel.name });
 
     const layoutElement = vizPanel.parent!;
 

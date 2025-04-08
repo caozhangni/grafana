@@ -4,7 +4,8 @@ import saveAs from 'file-saver';
 import { ComponentProps } from 'react';
 
 import { FieldType, LogLevel, LogsDedupStrategy, standardTransformersRegistry, toDataFrame } from '@grafana/data';
-import { organizeFieldsTransformer } from '@grafana/data/src/transformations/transformers/organize';
+import { organizeFieldsTransformer } from '@grafana/data/internal';
+import { config } from '@grafana/runtime';
 
 import { MAX_CHARACTERS } from '../../logs/components/LogRowMessage';
 import { logRowsToReadableJson } from '../../logs/utils';
@@ -32,11 +33,12 @@ const defaultProps: LogsMetaRowProps = {
   clearDetectedFields: jest.fn(),
 };
 
-const setup = (propOverrides?: object) => {
+const setup = (propOverrides?: object, disableDownload = false) => {
   const props = {
     ...defaultProps,
     ...propOverrides,
   };
+  config.exploreHideLogsDownload = disableDownload;
 
   return render(<LogsMetaRow {...props} />);
 };
@@ -119,6 +121,11 @@ describe('LogsMetaRow', () => {
   it('renders a button to show the download menu', () => {
     setup();
     expect(screen.getByText('Download').closest('button')).toBeInTheDocument();
+  });
+
+  it('does not render a button to show the download menu if disabled', async () => {
+    setup({}, true);
+    expect(screen.queryByText('Download')).toBeNull();
   });
 
   it('renders a button to show the download menu', async () => {
@@ -266,7 +273,7 @@ describe('LogsMetaRow', () => {
             {
               name: 'time',
               type: FieldType.time,
-              values: ['1970-01-02T00:00:00Z'],
+              values: [1],
             },
             {
               name: 'message',
@@ -308,6 +315,6 @@ describe('LogsMetaRow', () => {
     const blob = (saveAs as unknown as jest.Mock).mock.lastCall[0];
     expect(blob.type).toBe('text/csv;charset=utf-8');
     const text = await blob.text();
-    expect(text).toBe(`"time","message bar"\r\n1970-01-02T00:00:00Z,INFO 1`);
+    expect(text).toBe(`"Date","time","message bar"\r\n1970-01-01T00:00:00.001Z,1,INFO 1`);
   });
 });

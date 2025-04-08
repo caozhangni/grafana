@@ -12,6 +12,11 @@
       "args": ["server", "--homepath", "${workspaceFolder}", "--packaging", "dev", "cfg:app_mode=development"]
     },
     {
+      "name": "Attach to Go Process",
+      "type": "go",
+      "request": "attach"
+    },
+    {
       "name": "Attach to Test Process",
       "type": "go",
       "request": "attach",
@@ -95,6 +100,15 @@
       "env": {
         "NODE_ENV": "test"
       }
+    },
+    {
+      "name": "Debug ESLint",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["run", "eslint", "${file}"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     },
     {
       "name": "Debug Go test",

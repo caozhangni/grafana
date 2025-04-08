@@ -221,6 +221,8 @@ func (ss *sqlStore) Delete(ctx context.Context, cmd *org.DeleteOrgCommand) error
 
 		deletes := []string{
 			"DELETE FROM star WHERE org_id = ?",
+			"DELETE FROM playlist_item WHERE playlist_id IN (SELECT id FROM playlist WHERE org_id = ?)",
+			"DELETE FROM playlist WHERE org_id = ?",
 			"DELETE FROM dashboard_tag WHERE org_id = ?",
 			"DELETE FROM api_key WHERE org_id = ?",
 			"DELETE FROM data_source WHERE org_id = ?",
@@ -567,7 +569,7 @@ func (ss *sqlStore) SearchOrgUsers(ctx context.Context, query *org.SearchOrgUser
 		}
 
 		whereConditions = append(whereConditions, "u.is_service_account = ?")
-		whereParams = append(whereParams, ss.dialect.BooleanStr(false))
+		whereParams = append(whereParams, ss.dialect.BooleanValue(false))
 
 		if query.User == nil {
 			ss.log.Warn("Query user not set for filtering.")
@@ -609,6 +611,7 @@ func (ss *sqlStore) SearchOrgUsers(ctx context.Context, query *org.SearchOrgUser
 			"u.created",
 			"u.updated",
 			"u.is_disabled",
+			"u.is_provisioned",
 		)
 
 		if len(query.SortOpts) > 0 {

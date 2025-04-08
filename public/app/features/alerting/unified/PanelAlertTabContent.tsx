@@ -2,7 +2,9 @@ import { css } from '@emotion/css';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
+import { config } from '@grafana/runtime';
 import { Alert, LoadingPlaceholder, ScrollContainer, useStyles2 } from '@grafana/ui';
+import { Trans, t } from 'app/core/internationalization';
 import { contextSrv } from 'app/core/services/context_srv';
 import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
 import { PanelModel } from 'app/features/dashboard/state/PanelModel';
@@ -26,10 +28,13 @@ export const PanelAlertTabContent = ({ dashboard, panel }: Props) => {
     poll: true,
   });
   const permissions = getRulesPermissions('grafana');
-  const canCreateRules = contextSrv.hasPermission(permissions.create);
+  const canCreateRules = config.unifiedAlertingEnabled && contextSrv.hasPermission(permissions.create);
 
   const alert = errors.length ? (
-    <Alert title="Errors loading rules" severity="error">
+    <Alert
+      title={t('alerting.panel-alert-tab-content.alert.title-errors-loading-rules', 'Errors loading rules')}
+      severity="error"
+    >
       {errors.map((error, index) => (
         <div key={index}>Failed to load Grafana rules state: {stringifyErrorLike(error)}</div>
       ))}
@@ -40,7 +45,7 @@ export const PanelAlertTabContent = ({ dashboard, panel }: Props) => {
     return (
       <div className={styles.innerWrapper}>
         {alert}
-        <LoadingPlaceholder text="Loading rules..." />
+        <LoadingPlaceholder text={t('alerting.panel-alert-tab-content.text-loading-rules', 'Loading rules...')} />
       </div>
     );
   }
@@ -59,18 +64,29 @@ export const PanelAlertTabContent = ({ dashboard, panel }: Props) => {
     );
   }
 
+  const isNew = !Boolean(dashboard.uid);
+
   return (
     <div data-testid={selectors.components.PanelAlertTabContent.content} className={styles.noRulesWrapper}>
       {alert}
-      {!!dashboard.uid && (
+      {!isNew && (
         <>
-          <p>There are no alert rules linked to this panel.</p>
+          <p>
+            <Trans i18nKey="dashboard.panel-edit.alerting-tab.no-rules">
+              There are no alert rules linked to this panel.
+            </Trans>
+          </p>
           {!!dashboard.meta.canSave && canCreateRules && <NewRuleFromPanelButton panel={panel} dashboard={dashboard} />}
         </>
       )}
-      {!dashboard.uid && !!dashboard.meta.canSave && (
-        <Alert severity="info" title="Dashboard not saved">
-          Dashboard must be saved before alerts can be added.
+      {isNew && !!dashboard.meta.canSave && (
+        <Alert
+          severity="info"
+          title={t('alerting.panel-alert-tab-content.title-dashboard-not-saved', 'Dashboard not saved')}
+        >
+          <Trans i18nKey="dashboard.panel-edit.alerting-tab.dashboard-not-saved">
+            Dashboard must be saved before alerts can be added.
+          </Trans>
         </Alert>
       )}
     </div>
