@@ -1,6 +1,7 @@
 package options
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/rest"
 
 	"github.com/grafana/grafana/pkg/infra/tracing"
 	"github.com/grafana/grafana/pkg/services/featuremgmt"
@@ -28,7 +30,13 @@ const (
 
 	// Deprecated: legacy is a shim that is no longer necessary
 	StorageTypeLegacy StorageType = "legacy"
+
+	BlobThresholdDefault int = 0
 )
+
+type RestConfigProvider interface {
+	GetRestConfig(context.Context) (*rest.Config, error)
+}
 
 type StorageOptions struct {
 	// The desired storage type
@@ -50,9 +58,15 @@ type StorageOptions struct {
 	// s3://my-bucket?region=us-west-1 (using default credentials)
 	// azblob://my-container
 	BlobStoreURL string
+	// Optional blob storage field. When an object's size in bytes exceeds the threshold
+	// value, it is considered large and gets partially stored in blob storage.
+	BlobThresholdBytes int
 
 	// {resource}.{group} = 1|2|3|4
 	UnifiedStorageConfig map[string]setting.UnifiedStorageConfig
+
+	// Access to the other clients
+	ConfigProvider RestConfigProvider
 }
 
 func NewStorageOptions() *StorageOptions {
@@ -61,6 +75,7 @@ func NewStorageOptions() *StorageOptions {
 		Address:                                "localhost:10000",
 		GrpcClientAuthenticationTokenNamespace: "*",
 		GrpcClientAuthenticationAllowInsecure:  false,
+		BlobThresholdBytes:                     BlobThresholdDefault,
 	}
 }
 
@@ -134,7 +149,7 @@ func (o *StorageOptions) ApplyTo(serverConfig *genericapiserver.RecommendedConfi
 	if err != nil {
 		return err
 	}
-	getter := apistore.NewRESTOptionsGetterForClient(unified, etcdOptions.StorageConfig)
+	getter := apistore.NewRESTOptionsGetterForClient(unified, etcdOptions.StorageConfig, o.ConfigProvider)
 	serverConfig.RESTOptionsGetter = getter
 	return nil
 }
