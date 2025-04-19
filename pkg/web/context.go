@@ -32,6 +32,7 @@ import (
 
 // Context represents the runtime context of current request of Macaron instance.
 // It is the integration of most frequently used middlewares and helper methods.
+// INFO: 请求的上下文
 type Context struct {
 	mws []Middleware
 
@@ -102,6 +103,10 @@ const (
 )
 
 // HTML renders the HTML with default template set.
+// INFO: 通过数据和html模板渲染页面
+// status: http状态码
+// name: 模板名称
+// data: 数据
 func (ctx *Context) HTML(status int, name string, data any) {
 	ctx.Resp.Header().Set(headerContentType, contentTypeHTML)
 	ctx.Resp.WriteHeader(status)

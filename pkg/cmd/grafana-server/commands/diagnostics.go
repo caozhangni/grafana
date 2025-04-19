@@ -114,6 +114,7 @@ func (td *tracingDiagnostics) overrideWithEnv() error {
 	return nil
 }
 
+// INFO: 设置Go语言的性能分析（profiling）功能
 func setupProfiling(profile bool, profileAddr string, profilePort uint64, blockRate int, mutexFraction int) error {
 	profileDiagnostics := newProfilingDiagnostics(profile, profileAddr, profilePort, blockRate, mutexFraction)
 	if err := profileDiagnostics.overrideWithEnv(); err != nil {
@@ -139,6 +140,7 @@ func setupProfiling(profile bool, profileAddr string, profilePort uint64, blockR
 	return nil
 }
 
+// INFO: 设置Go语言的执行跟踪功能(和可观测性中的tracing不是同一个概念)
 func setupTracing(tracing bool, tracingFile string, logger *log.ConcreteLogger) error {
 	traceDiagnostics := newTracingDiagnostics(tracing, tracingFile)
 	if err := traceDiagnostics.overrideWithEnv(); err != nil {

@@ -224,6 +224,7 @@ func hashUserIdentifier(identifier string, secret string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// INFO: 返回主页的html页面
 func (hs *HTTPServer) Index(c *contextmodel.ReqContext) {
 	c, span := hs.injectSpan(c, "api.Index")
 	defer span.End()

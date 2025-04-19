@@ -903,7 +903,7 @@ func (cfg *Cfg) loadSpecifiedConfigFile(configFile string, masterFile *ini.File)
 
 func (cfg *Cfg) loadConfiguration(args CommandLineArgs) (*ini.File, error) {
 	// load config defaults
-	// INFO: 加载默认配置文件(conf/defaults.ini)
+	// INFO: 处理默认配置文件(conf/defaults.ini)
 	defaultConfigFile := path.Join(cfg.HomePath, "conf/defaults.ini")
 	cfg.configFiles = append(cfg.configFiles, defaultConfigFile)
 
@@ -914,6 +914,7 @@ func (cfg *Cfg) loadConfiguration(args CommandLineArgs) (*ini.File, error) {
 	}
 
 	// load defaults
+	// INFO: 加载默认配置文件(conf/defaults.ini)
 	parsedFile, err := ini.Load(defaultConfigFile)
 	if err != nil {
 		fmt.Printf("Failed to parse defaults.ini, %v\n", err)
@@ -927,7 +928,8 @@ func (cfg *Cfg) loadConfiguration(args CommandLineArgs) (*ini.File, error) {
 	cfg.applyCommandLineDefaultProperties(commandLineProps, parsedFile)
 
 	// load specified config file
-	// INFO: 加载自定义配置文件(conf/custom.ini)
+	// INFO: 加载自定义配置文件(conf/custom.ini或者args.Config指定的文件)
+	// INFO: 会把自定义配置文件中的配置项合并到默认配置文件中(即parsedFile)
 	err = cfg.loadSpecifiedConfigFile(args.Config, parsedFile)
 	if err != nil {
 		err2 := cfg.initLogging(parsedFile)

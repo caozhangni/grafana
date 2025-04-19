@@ -25,12 +25,15 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 )
 
-// INFO: 创建server命令
+// INFO: 创建server命令并返回
 func ServerCommand(version, commit, enterpriseCommit, buildBranch, buildstamp string) *cli.Command {
 	return &cli.Command{
+		// INFO: 命令名称
 		Name:  "server",
 		Usage: "run the grafana server",
+		// INFO: 定义命令行参数
 		Flags: commonFlags,
+		// INFO: 执行命令的时候被调用的函数
 		Action: func(context *cli.Context) error {
 			return RunServer(standalone.BuildInfo{
 				Version:          version,
@@ -40,12 +43,15 @@ func ServerCommand(version, commit, enterpriseCommit, buildBranch, buildstamp st
 				BuildStamp:       buildstamp,
 			}, context)
 		},
+		// INFO: 这里又嵌套了一个命令
 		Subcommands: []*cli.Command{TargetCommand(version, commit, buildBranch, buildstamp)},
 	}
 }
 
-// INFO: 运行server	
+// INFO: 运行server
 func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
+	// INFO: 这是两个打印版本的flag
+	// 有就打印版本信息
 	if Version || VerboseVersion {
 		if opts.EnterpriseCommit != gcli.DefaultCommitValue && opts.EnterpriseCommit != "" {
 			fmt.Printf("Version %s (commit: %s, branch: %s, enterprise-commit: %s)\n", opts.Version, opts.Commit, opts.BuildBranch, opts.EnterpriseCommit)
@@ -70,13 +76,17 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 		}
 	}()
 
+	// INFO: 设置Go语言的性能分析（profiling）功能
 	if err := setupProfiling(Profile, ProfileAddr, ProfilePort, ProfileBlockRate, ProfileMutexFraction); err != nil {
 		return err
 	}
+	// INFO: 设置Go语言的执行跟踪功能(和可观测性中的tracing不是同一个概念)
 	if err := setupTracing(Tracing, TracingFile, logger); err != nil {
 		return err
 	}
 
+	// INFO: 处理整个server的panic(兜底)
+	// INFO: 确保在任何情况下，server退出之前，日志都会被写入到日志文件中
 	defer func() {
 		// If we've managed to initialize them, this is the last place
 		// where we're able to log anything that'll end up in Grafana's
@@ -91,7 +101,9 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 		}
 	}()
 
+	// INFO: 设置创建信息
 	SetBuildInfo(opts)
+	// INFO: 检查grafana是否以root用户运行,有的话打印警告
 	checkPrivileges()
 
 	configOptions := strings.Split(ConfigOverrides, " ")
@@ -109,6 +121,7 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 	metrics.SetBuildInformation(metrics.ProvideRegisterer(), opts.Version, opts.Commit, opts.BuildBranch, getBuildstamp(opts))
 
 	// INFO: 初始化server对象
+	// INFO: Intialize方法是wire生成的
 	s, err := server.Initialize(
 		cfg,
 		server.Options{

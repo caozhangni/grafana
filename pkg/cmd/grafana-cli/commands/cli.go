@@ -14,10 +14,12 @@ import (
 const DefaultCommitValue = "NA"
 
 // CLICommand is the entrypoint for the grafana-cli command. It returns the exit code for the grafana-cli program.
+// INFO: 创建cli命令
 func CLICommand(version string) *cli.Command {
 	return &cli.Command{
 		Name:  "cli",
 		Usage: "run the grafana cli",
+		// INFO: 定义命令行参数
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "config",

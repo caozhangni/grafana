@@ -13,12 +13,15 @@ import (
 )
 
 func RunGrafanaCmd(subCmd string) int {
+	// INFO: 获取当前执行的二进制文件路径
 	curr, err := os.Executable()
 	if err != nil {
 		fmt.Println("Error locating executable:", err)
 		return 1
 	}
 
+	// NOTE: 注意单独的grafan-server和grafana-cli命令后续就会废弃
+	// 需要使用grafana server和grafana cli命令代替
 	switch filepath.Base(curr) {
 	case "grafana-server":
 		fmt.Printf("%s: %s\n", color.RedString("Deprecation warning"), "The standalone 'grafana-server' program is deprecated and will be removed in the future. Please update all uses of 'grafana-server' to 'grafana server'")
