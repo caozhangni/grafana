@@ -176,8 +176,8 @@ func listenToSystemSignals(ctx context.Context, s gserver) {
 			}
 		case sig := <-signalChan:
 			// INFO: 设置一个30秒的Shutdown超时
-			// ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			ctx, cancel := context.WithTimeout(ctx, 3000000*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			// ctx, cancel := context.WithTimeout(ctx, 3000000*time.Second)
 			defer cancel()
 			// INFO: 这个Shutdown方法会处理超时的情况
 			if err := s.Shutdown(ctx, fmt.Sprintf("System signal: %s", sig)); err != nil {
