@@ -32,7 +32,9 @@ var (
 	_ UnifiedStorageGrpcService = (*service)(nil)
 )
 
+// INFO: 统一的存储grpc服务
 type UnifiedStorageGrpcService interface {
+	// INFO: 嵌入了dskit的NamedService接口
 	services.NamedService
 
 	// Return the address where this service is running
@@ -40,6 +42,7 @@ type UnifiedStorageGrpcService interface {
 }
 
 type service struct {
+	// INFO: 嵌入了dskit的BasicService接口的实现
 	*services.BasicService
 
 	cfg       *setting.Cfg

@@ -29,8 +29,11 @@ func (l *serviceListener) Stopped() {
 	l.log.Info("All modules stopped")
 }
 
+// INFO: 用于被dskit的serviceManager在状态发生变化时调用
+// INFO: 注意这里会告知是一个service
 func (l *serviceListener) Failure(service services.Service) {
 	// if any service fails, stop all services
+	// INFO: 如果有任何服务失败,停止所有服务
 	if err := l.service.Shutdown(context.Background(), service.FailureCase().Error()); err != nil {
 		l.log.Error("Failed to stop all modules", "err", err)
 	}

@@ -37,6 +37,7 @@ func NewModule(opts Options, apiOpts api.ServerOptions, features featuremgmt.Fea
 }
 
 func newModuleServer(opts Options, apiOpts api.ServerOptions, features featuremgmt.FeatureToggles, cfg *setting.Cfg, storageMetrics *resource.StorageMetrics, indexMetrics *resource.BleveIndexMetrics, promGatherer prometheus.Gatherer) (*ModuleServer, error) {
+	// INFO: 创建带取消功能的上下文
 	rootCtx, shutdownFn := context.WithCancel(context.Background())
 
 	s := &ModuleServer{
@@ -63,6 +64,7 @@ func newModuleServer(opts Options, apiOpts api.ServerOptions, features featuremg
 // ModuleServer is responsible for managing the lifecycle of dskit services. The
 // ModuleServer has the minimal set of dependencies to launch dskit services,
 // but it can be used to launch the entire Grafana server.
+// INFO: 负责管理分布式服务的生命周期
 type ModuleServer struct {
 	opts    Options
 	apiOpts api.ServerOptions
@@ -106,7 +108,9 @@ func (s *ModuleServer) init() error {
 
 // Run initializes and starts services. This will block until all services have
 // exited. To initiate shutdown, call the Shutdown method in another goroutine.
+// INFO: 初始化并启动服务。这将阻塞，直到所有服务都退出。要启动关闭，请在另一个 goroutine 中调用 Shutdown 方法。
 func (s *ModuleServer) Run() error {
+	// INFO: 函数结束时才会关闭shutdownFinished通道
 	defer close(s.shutdownFinished)
 
 	if err := s.init(); err != nil {
@@ -116,16 +120,22 @@ func (s *ModuleServer) Run() error {
 	s.notifySystemd("READY=1")
 	s.log.Debug("Waiting on services...")
 
+	// INFO: 创建模块管理器
 	m := modules.New(s.cfg.Target)
 
 	// only run the instrumentation server module if were not running a module that already contains an http server
+	// INFO: 注册仪器化服务模块
 	m.RegisterInvisibleModule(modules.InstrumentationServer, func() (services.Service, error) {
+		// NOTE: 注意all和core模块是包含http服务的,所以不需要注册仪器化服务模块
 		if m.IsModuleEnabled(modules.All) || m.IsModuleEnabled(modules.Core) {
+			// INFO: 这里的方法都是空的,只是加了个名称
 			return services.NewBasicService(nil, nil, nil).WithName(modules.InstrumentationServer), nil
 		}
+		// INFO: 创建仪器化服务
 		return NewInstrumentationService(s.log, s.cfg, s.promGatherer)
 	})
 
+	// INFO: 注册 core 模块
 	m.RegisterModule(modules.Core, func() (services.Service, error) {
 		return NewService(s.cfg, s.opts, s.apiOpts)
 	})
@@ -139,6 +149,7 @@ func (s *ModuleServer) Run() error {
 	//	s.log.Debug("apiserver feature is disabled")
 	//}
 
+	// INFO: 注册 storage-server 模块
 	m.RegisterModule(modules.StorageServer, func() (services.Service, error) {
 		docBuilders, err := InitializeDocumentBuilders(s.cfg)
 		if err != nil {
@@ -147,18 +158,22 @@ func (s *ModuleServer) Run() error {
 		return sql.ProvideUnifiedStorageGrpcService(s.cfg, s.features, nil, s.log, nil, docBuilders, s.storageMetrics, s.indexMetrics)
 	})
 
+	// INFO: 注册 zanzana-server 模块
 	m.RegisterModule(modules.ZanzanaServer, func() (services.Service, error) {
 		return authz.ProvideZanzanaService(s.cfg, s.features)
 	})
 
+	// INFO: 注册 all 模块
 	m.RegisterModule(modules.All, nil)
 
+	// INFO: 阻塞直到所有服务都退出
 	return m.Run(s.context)
 }
 
 // Shutdown initiates Grafana graceful shutdown. This shuts down all
 // running background services. Since Run blocks Shutdown supposed to
 // be run from a separate goroutine.
+// INFO: 优雅关闭Grafana。这将关闭所有正在运行的后台服务。由于 Run 阻塞，Shutdown 应该从另一个 goroutine 执行
 func (s *ModuleServer) Shutdown(ctx context.Context, reason string) error {
 	var err error
 	s.shutdownOnce.Do(func() {
@@ -167,8 +182,10 @@ func (s *ModuleServer) Shutdown(ctx context.Context, reason string) error {
 		s.shutdownFn()
 		// Wait for server to shut down
 		select {
+		// NOTE: 只有Run方法结束时才会关闭shutdownFinished通道
 		case <-s.shutdownFinished:
 			s.log.Debug("Finished waiting for server to shut down")
+		// INFO: 处理超时的情况
 		case <-ctx.Done():
 			s.log.Warn("Timed out while waiting for server to shut down")
 			err = fmt.Errorf("timeout waiting for shutdown")

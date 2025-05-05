@@ -137,6 +137,7 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 	}
 
 	ctx := context.Background()
+	// INFO: 启动协程监听系统信号
 	go listenToSystemSignals(ctx, s)
 	// INFO: 启动服务
 	return s.Run()
@@ -157,11 +158,14 @@ type gserver interface {
 	Shutdown(context.Context, string) error
 }
 
+// INFO: 监听系统信号
 func listenToSystemSignals(ctx context.Context, s gserver) {
 	signalChan := make(chan os.Signal, 1)
 	sighupChan := make(chan os.Signal, 1)
 
+	// INFO: 监听reload信号
 	signal.Notify(sighupChan, syscall.SIGHUP)
+	// INFO: 监听中断(ctrl+c)和终止信号(kill -15)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	for {
@@ -171,9 +175,13 @@ func listenToSystemSignals(ctx context.Context, s gserver) {
 				fmt.Fprintf(os.Stderr, "Failed to reload loggers: %s\n", err)
 			}
 		case sig := <-signalChan:
-			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			// INFO: 设置一个30秒的Shutdown超时
+			// ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 3000000*time.Second)
 			defer cancel()
+			// INFO: 这个Shutdown方法会处理超时的情况
 			if err := s.Shutdown(ctx, fmt.Sprintf("System signal: %s", sig)); err != nil {
+				// INFO: 这是把错误信息写入到stderr
 				fmt.Fprintf(os.Stderr, "Timed out waiting for server to shut down\n")
 			}
 			return

@@ -80,6 +80,7 @@ var (
 
 // TODO move all global vars to this struct
 type Cfg struct {
+	// INFO: 指定的要启动的模块(或者说是服务)
 	Target []string
 	Raw    *ini.File
 	Logger log.Logger

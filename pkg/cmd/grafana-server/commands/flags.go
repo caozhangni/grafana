@@ -7,6 +7,7 @@ import (
 )
 
 // flags for the grafana server command(s)
+// INFO: 通用命令行参数会绑定到的变量
 var (
 	ConfigFile           string
 	HomePath             string
@@ -25,17 +26,21 @@ var (
 	TracingFile          string
 )
 
+// INFO: 定义一些通用的命令行参数
 var commonFlags = []cli.Flag{
+	// INFO: 配置文件路径
 	&cli.StringFlag{
 		Name:        "config",
 		Usage:       "Path to config file",
 		Destination: &ConfigFile,
 	},
+	// INFO: 指定grafana的家目录,默认是当前工作目录
 	&cli.StringFlag{
 		Name:        "homepath",
 		Usage:       "Path to Grafana install/home path, defaults to working directory",
 		Destination: &HomePath,
 	},
+	// INFO: 指定grafana的pid文件路径
 	&cli.StringFlag{
 		Name:        "pidfile",
 		Usage:       "Path to Grafana pid file",
@@ -47,11 +52,13 @@ var commonFlags = []cli.Flag{
 		Usage:       "describes the way Grafana was installed",
 		Destination: &Packaging,
 	},
+	// INFO: 通过命令行参数的方式覆盖配置文件中的配置
 	&cli.StringFlag{
 		Name:        "configOverrides",
 		Usage:       "Configuration options to override defaults as a string. e.g. cfg:default.paths.log=/dev/null",
 		Destination: &ConfigOverrides,
 	},
+	// INFO: 打印版本信息
 	&cli.BoolFlag{
 		Name:               "version",
 		Aliases:            []string{"v"},
@@ -59,6 +66,7 @@ var commonFlags = []cli.Flag{
 		DisableDefaultText: true,
 		Destination:        &Version,
 	},
+	// INFO: 打印版本信息,包括所有依赖,并退出
 	&cli.BoolFlag{
 		Name:        "vv",
 		Usage:       "prints current version, all dependencies and exits",

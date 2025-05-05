@@ -60,10 +60,12 @@ func newServer(opts Options, cfg *setting.Cfg, httpServer *api.HTTPServer, roleR
 	promReg prometheus.Registerer,
 ) (*Server, error) {
 	rootCtx, shutdownFn := context.WithCancel(context.Background())
+	// INFO: 基于rootCtx创建一个errgroup及childCtx
 	childRoutines, childCtx := errgroup.WithContext(rootCtx)
 
 	s := &Server{
 		promReg:             promReg,
+		// NOTE: 注意这里context是childCtx，而不是rootCtx
 		context:             childCtx,
 		childRoutines:       childRoutines,
 		HTTPServer:          httpServer,
@@ -88,8 +90,8 @@ func newServer(opts Options, cfg *setting.Cfg, httpServer *api.HTTPServer, roleR
 // ModuleServer to launch specific modules.
 // INFO: 表示整个Grafana服务
 type Server struct {
-	context          context.Context
-	shutdownFn       context.CancelFunc
+	context          context.Context // INFO: 注意这里context是childCtx，而不是rootCtx
+	shutdownFn       context.CancelFunc // INFO: 用于取消context
 	childRoutines    *errgroup.Group // INFO: 服务下的子协程
 	log              log.Logger
 	cfg              *setting.Cfg
@@ -138,6 +140,8 @@ func (s *Server) Init() error {
 // Run initializes and starts services. This will block until all services have
 // exited. To initiate shutdown, call the Shutdown method in another goroutine.
 // INFO: 启动服务
+// INFO: 该方法会阻塞等待所有服务启动退出
+// INFO: 需要通过其他协程调用Shutdown方法来触发关闭
 func (s *Server) Run() error {
 	defer close(s.shutdownFinished)
 
@@ -155,7 +159,7 @@ func (s *Server) Run() error {
 
 		service := svc
 		serviceName := reflect.TypeOf(service).String()
-		// INFO: 单个服务作为一个协程启动
+		// INFO: 单个后台服务作为一个协程启动
 		s.childRoutines.Go(func() error {
 			select {
 			case <-s.context.Done():
@@ -163,6 +167,8 @@ func (s *Server) Run() error {
 			default:
 			}
 			s.log.Debug("Starting background service", "service", serviceName)
+			// IMPT: 传进Run方法的context是能够处理ctx.Done()的
+			// INFO: 这里会阻塞等待服务退出
 			err := service.Run(s.context)
 			// Do not return context.Canceled error since errgroup.Group only
 			// returns the first error to the caller - thus we can miss a more
@@ -185,11 +191,15 @@ func (s *Server) Run() error {
 // Shutdown initiates Grafana graceful shutdown. This shuts down all
 // running background services. Since Run blocks Shutdown supposed to
 // be run from a separate goroutine.
+// INFO: Shutdown启动Grafana的优雅关闭流程
+// INFO: 这会关闭所有正在运行的后台服务
+// INFO: 由于Run会阻塞，Shutdown应该在一个单独的goroutine中运行
 func (s *Server) Shutdown(ctx context.Context, reason string) error {
 	var err error
 	s.shutdownOnce.Do(func() {
 		s.log.Info("Shutdown started", "reason", reason)
 		// Call cancel func to stop background services.
+		// INFO: 关闭context,那些后台服务会处理ctx.Done()并退出
 		s.shutdownFn()
 		// Wait for server to shut down
 		select {
