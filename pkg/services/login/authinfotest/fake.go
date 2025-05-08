@@ -6,9 +6,11 @@ import (
 	"github.com/grafana/grafana/pkg/services/login"
 )
 
+// INFO: 实现了AuthInfoService接口的MFake服务,主要供其他的测试案例使用(包括其他外部service的测试案例中也会使用)
 type FakeService struct {
 	login.AuthInfoService
 	LatestUserID         int64
+	// INFO: 期望返回的的一些对象
 	ExpectedUserAuth     *login.UserAuth
 	ExpectedExternalUser *login.ExternalUserInfo
 	ExpectedError        error
