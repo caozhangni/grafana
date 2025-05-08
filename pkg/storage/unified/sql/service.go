@@ -63,6 +63,8 @@ type service struct {
 	indexMetrics   *resource.BleveIndexMetrics
 
 	docBuilders resource.DocumentBuilderSupplier
+
+	distributor *resource.Distributor
 }
 
 func ProvideUnifiedStorageGrpcService(
@@ -74,6 +76,7 @@ func ProvideUnifiedStorageGrpcService(
 	docBuilders resource.DocumentBuilderSupplier,
 	storageMetrics *resource.StorageMetrics,
 	indexMetrics *resource.BleveIndexMetrics,
+	distributor *resource.Distributor,
 ) (UnifiedStorageGrpcService, error) {
 	tracer := otel.Tracer("unified-storage")
 
@@ -101,6 +104,7 @@ func ProvideUnifiedStorageGrpcService(
 		docBuilders:    docBuilders,
 		storageMetrics: storageMetrics,
 		indexMetrics:   indexMetrics,
+		distributor:    distributor,
 	}
 
 	// This will be used when running as a dskit service
@@ -120,7 +124,7 @@ func (s *service) start(ctx context.Context) error {
 		return err
 	}
 
-	server, err := NewResourceServer(s.db, s.cfg, s.tracing, s.reg, authzClient, searchOptions, s.storageMetrics, s.indexMetrics, s.features)
+	server, err := NewResourceServer(s.db, s.cfg, s.tracing, s.reg, authzClient, searchOptions, s.storageMetrics, s.indexMetrics, s.features, s.distributor)
 	if err != nil {
 		return err
 	}

@@ -48,6 +48,7 @@ import (
 	"github.com/grafana/grafana/pkg/services/dashboards"
 	"github.com/grafana/grafana/pkg/services/datasources"
 	"github.com/grafana/grafana/pkg/services/featuremgmt"
+	"github.com/grafana/grafana/pkg/services/frontend"
 	"github.com/grafana/grafana/pkg/services/org"
 	"github.com/grafana/grafana/pkg/services/pluginsintegration/pluginaccesscontrol"
 	publicdashboardsapi "github.com/grafana/grafana/pkg/services/publicdashboards/api"
@@ -92,6 +93,17 @@ func (hs *HTTPServer) registerRoutes() {
 	// INFO: 登录页面
 	r.Get("/login", hs.LoginView)
 	r.Get("/invite/:code", hs.Index)
+
+	if hs.Features.IsEnabledGlobally(featuremgmt.FlagMultiTenantFrontend) {
+		index, err := frontend.NewIndexProvider(hs.Cfg, hs.License)
+		if err != nil {
+			panic(err) // ???
+		}
+		r.Get("/mtfe", index.HandleRequest)
+
+		// Temporarily expose the full bootdata via API
+		r.Get("/bootdata", reqNoAuth, hs.GetBootdata)
+	}
 
 	// authed views
 	// INFO: reqSignedIn中间件会检查是否已经登录
