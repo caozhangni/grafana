@@ -18,6 +18,8 @@ const (
 	RESOURCEGROUP = RESOURCE + "." + GROUP
 )
 
+// INFO: folder的资源信息
+// INFO: 用于被外部获取和注册
 var FolderResourceInfo = utils.NewResourceInfo(GROUP, VERSION,
 	RESOURCE, "folder", "Folder",
 	func() runtime.Object { return &Folder{} },

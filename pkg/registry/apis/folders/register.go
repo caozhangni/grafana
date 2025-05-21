@@ -37,6 +37,7 @@ import (
 var _ builder.APIGroupBuilder = (*FolderAPIBuilder)(nil)
 var _ builder.APIGroupValidation = (*FolderAPIBuilder)(nil)
 
+// INFO: 获取folder的资源信息
 var resourceInfo = folders.FolderResourceInfo
 
 var errNoUser = errors.New("valid user is required")
