@@ -12,15 +12,18 @@ import (
 
 func (hs *HTTPServer) registerSwaggerUI(r routing.RouteRegister) {
 	// Deprecated
+	// INFO: 已过时
 	r.Get("/swagger-ui", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "swagger", http.StatusMovedPermanently)
 	})
 	// Deprecated
+	// INFO: 已过时
 	r.Get("/openapi3", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "swagger", http.StatusMovedPermanently)
 	})
 
 	// The swagger based api navigator
+	// INFO: 带api导航的swagger
 	r.Get("/swagger", func(c *contextmodel.ReqContext) {
 		ctx := c.Req.Context()
 		assets, err := webassets.GetWebAssets(ctx, hs.Cfg, hs.License)

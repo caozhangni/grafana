@@ -280,6 +280,7 @@ func getRequestInfo(gr schema.GroupResource, namespaceMapper request.NamespaceMa
 	}
 }
 
+// INFO: 注册api组信息到k8s的apiserver中
 func InstallAPIs(
 	scheme *runtime.Scheme,
 	codecs serializer.CodecFactory,
@@ -419,6 +420,8 @@ func InstallAPIs(
 			}
 		}
 
+		// NOTE: 注意这里使用的是k8s的apiserver的方法
+		// INFO: 这里会把api组的信息注册到apiserver中
 		err := server.InstallAPIGroup(&g)
 		if err != nil {
 			return err

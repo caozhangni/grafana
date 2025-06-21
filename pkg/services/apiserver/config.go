@@ -11,6 +11,7 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 )
 
+// INFO: 这里主要是配置了grafana-apiserver的配置
 func applyGrafanaConfig(cfg *setting.Cfg, features featuremgmt.FeatureToggles, o *options.Options) error {
 	defaultLogLevel := 0
 	ip := net.ParseIP(cfg.HTTPAddr)
@@ -41,6 +42,7 @@ func applyGrafanaConfig(cfg *setting.Cfg, features featuremgmt.FeatureToggles, o
 
 	o.RecommendedOptions.Etcd.StorageConfig.Transport.ServerList = apiserverCfg.Key("etcd_servers").Strings(",")
 
+	// IMPT: 配置apiserver的ip和端口
 	o.RecommendedOptions.SecureServing.BindAddress = ip
 	o.RecommendedOptions.SecureServing.BindPort = port
 	o.RecommendedOptions.Authentication.RemoteKubeConfigFileOptional = true

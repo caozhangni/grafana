@@ -80,9 +80,12 @@ type service struct {
 	stopCh    chan struct{}
 	stoppedCh chan error
 
-	db       db.DB
-	rr       routing.RouteRegister
+	db db.DB
+	// INFO: 路由注册器
+	rr routing.RouteRegister
+	// IMPT: 注意这里实际使用的是k8s的apiserver的handler
 	handler  http.Handler
+	// IMPT: api组的构建器(该构建器可以将自定义的k8s资源定义对象注册到k8s的apiserver中)
 	builders []builder.APIGroupBuilder
 
 	tracing *tracing.TracingService
@@ -104,6 +107,7 @@ type service struct {
 	aggregatorRunner                  aggregatorrunner.AggregatorRunner
 }
 
+// INFO: apiserver服务的构造方法
 func ProvideService(
 	cfg *setting.Cfg,
 	features featuremgmt.FeatureToggles,
@@ -152,20 +156,28 @@ func ProvideService(
 		aggregatorRunner:                  aggregatorRunner,
 	}
 	// This will be used when running as a dskit service
+	// INFO:  创建基于dskit的服务
 	service := services.NewBasicService(s.start, s.running, nil).WithName(modules.GrafanaAPIServer)
+	// INFO: 创建带tracing的服务
 	s.NamedService = servicetracing.NewServiceTracer(tracing.GetTracerProvider(), service)
 
 	// TODO: this is very hacky
 	// We need to register the routes in ProvideService to make sure
 	// the routes are registered before the Grafana HTTP server starts.
+	// INFO: 路由注册函数
+	// IMPT: 注意这个函数的参数是一个路由注册器
 	proxyHandler := func(k8sRoute routing.RouteRegister) {
+		// IMPT: 这是一个统一共用的handler
+		// IMPT: 这里的参数c是通过web框架依赖注入的
 		handler := func(c *contextmodel.ReqContext) {
+			// INFO: 阻塞直到apiserver启动完成
 			if err := s.AwaitRunning(c.Req.Context()); err != nil {
 				c.Resp.WriteHeader(http.StatusInternalServerError)
 				_, _ = c.Resp.Write([]byte(http.StatusText(http.StatusInternalServerError)))
 				return
 			}
 
+			// INFO: 这里通常不会为空,因为apiserver启动完成之后(,会设置handler(start函数中)
 			if s.handler == nil {
 				c.Resp.WriteHeader(http.StatusNotFound)
 				_, _ = c.Resp.Write([]byte(http.StatusText(http.StatusNotFound)))
@@ -183,12 +195,15 @@ func ProvideService(
 			}
 
 			resp := responsewriter.WrapForHTTP1Or2(c.Resp)
+			// INFO: 这里是k8s的apiserver的handler
 			s.handler.ServeHTTP(resp, req)
 		}
 		k8sRoute.Any("/", middleware.ReqSignedIn, handler)
 		k8sRoute.Any("/*", middleware.ReqSignedIn, handler)
 	}
 
+	// INFO: 注意这里的第二个参数proxyHandler是路由注册函数,所以这里会立即执行
+	// INFO: 注册路由组
 	s.rr.Group("/apis", proxyHandler)
 	s.rr.Group("/livez", proxyHandler)
 	s.rr.Group("/readyz", proxyHandler)
@@ -214,7 +229,9 @@ func (s *service) IsDisabled() bool {
 }
 
 // Run is an adapter for the BackgroundService interface.
+// INFO: 实现BackgroundService接口的Run方法
 func (s *service) Run(ctx context.Context) error {
+	// INFO: 通过diskit的service来启动apiserver服务
 	if err := s.StartAsync(ctx); err != nil {
 		return err
 	}
@@ -225,17 +242,20 @@ func (s *service) Run(ctx context.Context) error {
 	return s.AwaitTerminated(ctx)
 }
 
+// INFO: 用于注册api组构建器
 func (s *service) RegisterAPI(b builder.APIGroupBuilder) {
 	s.builders = append(s.builders, b)
 }
 
 // nolint:gocyclo
+// INFO: 用于注册到dskit的service中,供其回调
 func (s *service) start(ctx context.Context) error {
 	// Get the list of groups the server will support
 	builders := s.builders
 	groupVersions := make([]schema.GroupVersion, 0, len(builders))
 
 	// Install schemas
+	// IMPT: 注册schema(即自定义的k8s资源定义对象)到k8s的apiserver中
 	for _, b := range builders {
 		gvs := builder.GetGroupVersions(b)
 		groupVersions = append(groupVersions, gvs...)
@@ -257,7 +277,9 @@ func (s *service) start(ctx context.Context) error {
 		}
 	}
 
+	// INFO: 创建grafana-apiserver的配置对象
 	o := grafanaapiserveroptions.NewOptions(s.codecs.LegacyCodec(groupVersions...))
+	// INFO: 应用grafana的配置到o中
 	err := applyGrafanaConfig(s.cfg, s.features, o)
 	if err != nil {
 		return err
@@ -269,6 +291,7 @@ func (s *service) start(ctx context.Context) error {
 	}
 
 	serverConfig := genericapiserver.NewRecommendedConfig(s.codecs)
+	// INFO: 将o的配置应用到serverConfig中
 	if err := o.ApplyTo(serverConfig); err != nil {
 		return err
 	}
@@ -300,6 +323,7 @@ func (s *service) start(ctx context.Context) error {
 	}
 
 	// Add OpenAPI specs for each group+version
+	// INFO: 添加OpenAPI的说明文档
 	err = builder.SetupConfig(
 		s.scheme,
 		serverConfig,
@@ -323,6 +347,7 @@ func (s *service) start(ctx context.Context) error {
 	}
 
 	// Install the API group+version
+	// IMPT: 注册api组信息到k8s的apiserver中
 	err = builder.InstallAPIs(s.scheme, s.codecs, server, serverConfig.RESTOptionsGetter, builders, o.StorageOptions,
 		// Required for the dual writer initialization
 		s.metrics, request.GetNamespaceMapper(s.cfg), kvstore.WithNamespace(s.kvStore, 0, "storage.dualwriting"),
@@ -339,10 +364,15 @@ func (s *service) start(ctx context.Context) error {
 
 	delegate := server
 
+	// IMPT: 注意这里使用的是k8s的apiserver代码
 	var runningServer *genericapiserver.GenericAPIServer
+	// INFO: 默认是不开启的
 	isKubernetesAggregatorEnabled := s.features.IsEnabledGlobally(featuremgmt.FlagKubernetesAggregator)
+	// INFO: 默认是不开启的
 	isDataplaneAggregatorEnabled := s.features.IsEnabledGlobally(featuremgmt.FlagDataplaneAggregator)
 
+	// NOTE: 注意s.aggregatorRunner实际上是一个空的实现,所以这里isKubernetesAggregatorEnabled设置为true也不会有什么效果
+	// NOTE: 所以现在还不清楚isKubernetesAggregatorEnabled的作用是什么
 	if isKubernetesAggregatorEnabled {
 		aggregatorServer, err := s.aggregatorRunner.Configure(s.options, serverConfig, delegate, s.scheme, builders)
 		if err != nil {
@@ -365,6 +395,7 @@ func (s *service) start(ctx context.Context) error {
 		}
 	}
 
+	// IMPT: 启动一个独立的dataplane aggregator服务
 	if isDataplaneAggregatorEnabled {
 		runningServer, err = s.startDataplaneAggregator(ctx, transport, serverConfig, delegate)
 		if err != nil {
@@ -373,6 +404,7 @@ func (s *service) start(ctx context.Context) error {
 	}
 
 	if !isDataplaneAggregatorEnabled && !isKubernetesAggregatorEnabled {
+		// IMPT: 启动核心服务
 		runningServer, err = s.startCoreServer(ctx, transport, server)
 		if err != nil {
 			return err
@@ -387,6 +419,7 @@ func (s *service) start(ctx context.Context) error {
 	}
 
 	// used by the proxy wrapper registered in ProvideService
+	// IMPT: 使用的handler是k8s的apiserver的handler
 	s.handler = runningServer.Handler
 	// used by local clients to make requests to the server
 	s.restConfig = runningServer.LoopbackClientConfig
@@ -394,6 +427,8 @@ func (s *service) start(ctx context.Context) error {
 	return nil
 }
 
+// INFO: 启动核心服务
+// IMPT: 这里的server是k8s的apiserver
 func (s *service) startCoreServer(
 	ctx context.Context,
 	transport *grafanaapiserveroptions.RoundTripperFunc,
@@ -484,6 +519,7 @@ func (s *service) DirectlyServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.handler.ServeHTTP(w, r)
 }
 
+// INFO: 用于注册到dskit的service中,供其回调
 func (s *service) running(ctx context.Context) error {
 	select {
 	case err := <-s.stoppedCh:

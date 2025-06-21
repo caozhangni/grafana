@@ -15,6 +15,8 @@ type Router interface {
 
 // RouteRegister allows you to add routes and web.Handlers
 // that the web server should serve.
+// INFO: 表示一个路由注册器
+// IMPT: 注意这里的[web.Handler]其实是任意可被调用的函数
 type RouteRegister interface {
 	// Get adds a list of handlers to a given route with a GET HTTP verb
 	Get(string, ...web.Handler)
@@ -32,6 +34,7 @@ type RouteRegister interface {
 	Patch(string, ...web.Handler)
 
 	// Any adds a list of handlers to a given route with any HTTP verb
+	// INFO: 同时注册所有的http方法
 	Any(string, ...web.Handler)
 
 	// Group allows you to pass a function that can add multiple routes
@@ -117,6 +120,7 @@ func (rr *RouteRegisterImpl) Group(pattern string, fn func(rr RouteRegister), ha
 	rr.groups = append(rr.groups, group)
 }
 
+// INFO: 这里会将路由注册到router参数中
 func (rr *RouteRegisterImpl) Register(router Router, namedMiddlewares ...RegisterNamedMiddleware) {
 	for _, r := range rr.routes {
 		// Add global named middlewares

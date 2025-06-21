@@ -91,6 +91,8 @@ type DashboardsAPIBuilder struct {
 	reg prometheus.Registerer
 }
 
+// INFO: 注册dashboard的API服务
+// INFO: 被依赖注入框架调用
 func RegisterAPIService(
 	cfg *setting.Cfg,
 	features featuremgmt.FeatureToggles,

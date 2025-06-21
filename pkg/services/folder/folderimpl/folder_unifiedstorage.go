@@ -428,6 +428,7 @@ func (s *Service) getRootFoldersFromApiServer(ctx context.Context, q *folder.Get
 		}
 	}
 
+	// NOTE: 注意这里使用的是新的统一存储对象
 	children, err := s.unifiedStore.GetChildren(ctx, *q)
 	if err != nil {
 		return nil, err

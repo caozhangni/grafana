@@ -22,6 +22,7 @@ import (
 
 // TODO: this (or something like it) belongs in grafana-app-sdk,
 // but lets keep it here while we iterate on a few simple examples
+// INFO: 用于构建api组
 type APIGroupBuilder interface {
 	// Add the kinds to the server scheme
 	InstallSchema(scheme *runtime.Scheme) error

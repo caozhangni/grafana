@@ -37,6 +37,7 @@ type Options struct {
 }
 
 // New returns a new instance of Server.
+// INFO: Server的构造方法,被依赖注入框架调用
 func New(opts Options, cfg *setting.Cfg, httpServer *api.HTTPServer, roleRegistry accesscontrol.RoleRegistry,
 	provisioningService provisioning.ProvisioningService, backgroundServiceProvider registry.BackgroundServiceRegistry,
 	usageStatsProvidersRegistry registry.UsageStatsProvidersRegistry, statsCollectorService *statscollector.Service,
@@ -106,6 +107,8 @@ type Server struct {
 	buildBranch        string
 	backgroundServices []registry.BackgroundService
 
+	// IMPT: 实际看下来这个单独的HTTPServer已经没什么用了(目前就只有很多的单元测试在引用)
+	// IMPT: 注意目前的HTTPServer是作为一个标准化的BackgroundService进行启动的
 	HTTPServer          *api.HTTPServer
 	roleRegistry        accesscontrol.RoleRegistry
 	provisioningService provisioning.ProvisioningService

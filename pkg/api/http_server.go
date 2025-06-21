@@ -115,10 +115,13 @@ import (
 	"github.com/grafana/grafana/pkg/web"
 )
 
+// INFO: 表示一个http服务器对象
 type HTTPServer struct {
-	log              log.Logger
-	web              *web.Mux
-	context          context.Context
+	log log.Logger
+	// IMPT: 这里使用了自定义的Macaron框架
+	web     *web.Mux
+	context context.Context
+	// INFO: http服务器
 	httpSrv          *http.Server
 	middlewares      []web.Handler
 	namedMiddlewares []routing.RegisterNamedMiddleware
@@ -399,9 +402,13 @@ func (hs *HTTPServer) AddNamedMiddleware(middleware routing.RegisterNamedMiddlew
 	hs.namedMiddlewares = append(hs.namedMiddlewares, middleware)
 }
 
+// IMPT: 该方法实现了 [github.com/grafana/grafana/pkg/registry.BackgroundService]
+// IMPT: 所以可以作为一个grafana的后台服务启动
 func (hs *HTTPServer) Run(ctx context.Context) error {
 	hs.context = ctx
 
+	// IMPT: 这个时候其他所有的Service的路由都已经注册到[hs.RouteRegister]中了
+	// IMPT: 这个方法会将[hs.RouteRegister]中的路由注册到具体的macaron框架中
 	hs.applyRoutes()
 
 	// Remove any square brackets enclosing IPv6 addresses, a format we support for backwards compatibility
@@ -583,10 +590,13 @@ func (hs *HTTPServer) tlsCertificates() ([]tls.Certificate, error) {
 	return []tls.Certificate{*tlsCert}, nil
 }
 
+// IMPT: 将路由注册到具体的macaron框架中
 func (hs *HTTPServer) applyRoutes() {
 	// start with middlewares & static routes
 	hs.addMiddlewaresAndStaticRoutes()
 	// then add view routes & api routes
+	// IMPT: 这里的hs.web实际上是macaron框架
+	// IMPT: 这里会将所有RouteRegister中的路由注册到macaron框架中
 	hs.RouteRegister.Register(hs.web, hs.namedMiddlewares...)
 	// lastly not found route
 	hs.web.NotFound(middleware.ProvideRouteOperationName("notfound"), middleware.ReqSignedIn, hs.NotFoundHandler)

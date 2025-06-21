@@ -133,6 +133,7 @@ func (r *Router) handle(method, pattern string, handle Handle) {
 }
 
 // Handle registers a new request handle with the given pattern, method and handlers.
+// IMPT: 注册路由到框架中
 func (r *Router) Handle(method string, pattern string, handlers []Handler) {
 	if len(r.groups) > 0 {
 		groupPattern := ""
@@ -150,6 +151,7 @@ func (r *Router) Handle(method string, pattern string, handlers []Handler) {
 	r.handle(method, pattern, func(resp http.ResponseWriter, req *http.Request, params map[string]string) {
 		c := r.m.createContext(resp, SetURLParams(req, params))
 		for _, h := range handlers {
+			// INFO: 将handler转换为middleware
 			c.mws = append(c.mws, mwFromHandler(h))
 		}
 		c.run()

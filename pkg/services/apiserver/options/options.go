@@ -20,6 +20,7 @@ type OptionsProvider interface {
 const defaultEtcdPathPrefix = "/registry/grafana.app"
 
 type Options struct {
+	// INFO: 推荐的选项(其实就是k8s的apiserver的配置)
 	RecommendedOptions       *genericoptions.RecommendedOptions
 	GrafanaAggregatorOptions *GrafanaAggregatorOptions
 	StorageOptions           *StorageOptions
@@ -86,6 +87,7 @@ func (o *Options) Validate() []error {
 	return nil
 }
 
+// INFO: 将o的配置应用到serverConfig中
 func (o *Options) ApplyTo(serverConfig *genericapiserver.RecommendedConfig) error {
 	serverConfig.AggregatedDiscoveryGroupManager = aggregated.NewResourceManager("apis")
 

@@ -47,6 +47,7 @@ var errNoResource = errors.New("resource name is required")
 
 // This is used just so wire has something unique to return
 type FolderAPIBuilder struct {
+	// INFO: 资源组版本(GroupVersion是k8s中定义的类型)
 	gv                   schema.GroupVersion
 	features             featuremgmt.FeatureToggles
 	namespacer           request.NamespaceMapper
@@ -63,6 +64,8 @@ type FolderAPIBuilder struct {
 	ignoreLegacy bool // skip legacy storage and only use unified storage
 }
 
+// INFO: 注册folder的API服务
+// INFO: 被依赖注入框架调用
 func RegisterAPIService(cfg *setting.Cfg,
 	features featuremgmt.FeatureToggles,
 	apiregistration builder.APIRegistrar,
@@ -103,8 +106,12 @@ func (b *FolderAPIBuilder) GetGroupVersion() schema.GroupVersion {
 }
 
 func addKnownTypes(scheme *runtime.Scheme, gv schema.GroupVersion) {
+	// NOTE: 注意这里注册使用的k8s的方法
 	scheme.AddKnownTypes(gv,
+		// INFO: 下面注册的这些对象是grafana-app-sdk生成的
+		// INFO: 单个Folder对象
 		&folders.Folder{},
+		// INFO: Folder集合对象
 		&folders.FolderList{},
 		&folders.FolderInfoList{},
 		&folders.DescendantCounts{},
@@ -118,8 +125,11 @@ func (b *FolderAPIBuilder) InstallSchema(scheme *runtime.Scheme) error {
 	// Link this version to the internal representation.
 	// This is used for server-side-apply (PATCH), and avoids the error:
 	//   "no kind is registered for the type"
+	// INFO: 注册的是内部的资源组版本
 	addKnownTypes(scheme, schema.GroupVersion{
+		// INFO: 组名没有改变
 		Group:   b.gv.Group,
+		// INFO: 版本号使用的是内部版本号
 		Version: runtime.APIVersionInternal,
 	})
 

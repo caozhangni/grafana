@@ -32,9 +32,11 @@ func ProvideManagerService(cfg *setting.Cfg) (*FeatureManager, error) {
 	}
 
 	// Register the standard flags
+	// INFO: 注册标准的特性开关
 	mgmt.registerFlags(standardFeatureFlags...)
 
 	// Load the flags from `custom.ini` files
+	// INFO: 从客制化配置文件中读取feature_toggles配置
 	flags, err := setting.ReadFeatureTogglesFromInitFile(cfg.Raw.Section("feature_toggles"))
 	if err != nil {
 		return mgmt, err

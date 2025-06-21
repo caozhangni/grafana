@@ -51,7 +51,9 @@ import (
 const FULLPATH_SEPARATOR = "/"
 
 type Service struct {
+	// INFO: 老存储对象
 	store                  folder.Store
+	// INFO: 新的统一存储对象
 	unifiedStore           folder.Store
 	db                     db.DB
 	log                    *slog.Logger
@@ -124,6 +126,7 @@ func ProvideService(
 			sorter,
 		)
 
+		// INFO: 使用统一存储
 		unifiedStore := ProvideUnifiedStore(k8sHandler, userService, tracer)
 
 		srv.unifiedStore = unifiedStore
@@ -379,9 +382,12 @@ func (s *Service) setFullpath(ctx context.Context, f *folder.Folder, forceLegacy
 func (s *Service) GetChildren(ctx context.Context, q *folder.GetChildrenQuery) ([]*folder.FolderReference, error) {
 	ctx, span := s.tracer.Start(ctx, "folder.GetChildren")
 	defer span.End()
+	// INFO: FlagKubernetesClientDashboardsFolders该特性开关默认是开启的
 	if s.features.IsEnabledGlobally(featuremgmt.FlagKubernetesClientDashboardsFolders) {
+		// INFO: 使用新的逻辑(即从统一存储获取数据)
 		return s.getChildrenFromApiServer(ctx, q)
 	}
+	// INFO: 使用老的逻辑(即从老的sql存储获取数据)
 	return s.GetChildrenLegacy(ctx, q)
 }
 
@@ -486,6 +492,7 @@ func (s *Service) getRootFolders(ctx context.Context, q *folder.GetChildrenQuery
 		}
 	}
 
+	// NOTE: 注意这里使用的是老的存储对象
 	children, err := s.store.GetChildren(ctx, *q)
 	if err != nil {
 		return nil, err

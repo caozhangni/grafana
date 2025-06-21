@@ -56,6 +56,7 @@ export interface InspectorStream {
   requestId?: string;
 }
 
+// INFO: 封装并实现了BackendService,用于向后端服务或者数据源发送http请求 
 export class BackendSrv implements BackendService {
   private inFlightRequests: Subject<string> = new Subject<string>();
   private HTTP_REQUEST_CANCELED = -1;

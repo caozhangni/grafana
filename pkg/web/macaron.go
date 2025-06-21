@@ -42,6 +42,8 @@ func Version() string {
 // Handler can be any callable function.
 // Macaron attempts to inject services into the handler's argument list,
 // and panics if an argument could not be fulfilled via dependency injection.
+// INFO: Handler应该是任何可被调用的函数
+// INFO: Handler的参数会通过Macaron框架依赖注入,依赖注入失败会报panic
 type Handler any
 
 //go:linkname hack_wrap github.com/grafana/grafana/pkg/api/response.wrap_handler
@@ -169,6 +171,7 @@ func (m *Macaron) createContext(rw http.ResponseWriter, req *http.Request) *Cont
 // ServeHTTP is the HTTP Entry point for a Macaron instance.
 // Useful if you want to control your own HTTP server.
 // Be aware that none of middleware will run without registering any router.
+// IMPT: 注意这实现了[http.Handler]接口,也就是macaron框架自定义了路由映射
 func (m *Macaron) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	req.URL.Path = strings.TrimPrefix(req.URL.Path, m.urlPrefix)
 	m.Router.ServeHTTP(rw, req)

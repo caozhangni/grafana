@@ -481,6 +481,7 @@ func (hs *HTTPServer) registerRoutes() {
 		hs.registerFolderAPI(apiRoute, authorize)
 
 		// Dashboard
+		// INFO: 注册dashboard接口
 		apiRoute.Group("/dashboards", func(dashboardRoute routing.RouteRegister) {
 			dashUIDScope := dashboards.ScopeDashboardsProvider.GetResourceScopeUID(ac.Parameter(":uid"))
 

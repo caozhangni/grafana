@@ -31,6 +31,7 @@ type FolderStoreImpl struct {
 // sqlStore implements the store interface.
 var _ folder.Store = (*FolderStoreImpl)(nil)
 
+// INFO: 老存储的构造方法
 func ProvideStore(db db.DB) *FolderStoreImpl {
 	return &FolderStoreImpl{db: db, log: log.New("folder-store")}
 }
