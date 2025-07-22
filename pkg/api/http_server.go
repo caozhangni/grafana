@@ -596,7 +596,7 @@ func (hs *HTTPServer) applyRoutes() {
 	hs.addMiddlewaresAndStaticRoutes()
 	// then add view routes & api routes
 	// IMPT: 这里的hs.web实际上是macaron框架
-	// IMPT: 这里会将所有RouteRegister中的路由注册到macaron框架中
+	// IMPT: 所以这里会将所有RouteRegister中的路由注册到macaron框架中
 	hs.RouteRegister.Register(hs.web, hs.namedMiddlewares...)
 	// lastly not found route
 	hs.web.NotFound(middleware.ProvideRouteOperationName("notfound"), middleware.ReqSignedIn, hs.NotFoundHandler)

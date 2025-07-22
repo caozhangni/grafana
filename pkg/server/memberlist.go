@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// INFO: 初始化memberlist的kv存储
 func (ms *ModuleServer) initMemberlistKV() (services.Service, error) {
 	logger := log.New("memberlist")
 
@@ -23,10 +24,13 @@ func (ms *ModuleServer) initMemberlistKV() (services.Service, error) {
 			ms.registerer,
 		),
 	)
+	// INFO: 创建dns提供者
 	dnsProvider := dns.NewProvider(logger, dnsProviderReg, dns.GolangResolverType)
 
+	// INFO: 创建kv存储
 	KVStore := kv.Config{Store: "memberlist"}
 
+	// INFO: 创建memberlist的kv存储
 	memberlistKVsvc := memberlist.NewKVInitService(toMemberlistConfig(ms.cfg), logger, dnsProvider, ms.registerer)
 	KVStore.MemberlistKV = memberlistKVsvc.GetMemberlistKV
 

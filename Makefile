@@ -246,8 +246,12 @@ build-js: ## Build frontend assets.
 	@echo "build frontend"
 	yarn run build
 
+# INFO: 通过环境变量获取插件ID,如果未设置环境变量则为空字符串
 PLUGIN_ID ?=
 
+# INFO: 编译插件
+# NOTE: 实际调用的是 pkg/tsdb/Magefile.go 中的 BuildPlugin 函数
+# NOTE: 这里如果 PLUGIN_ID 为空，则会退出
 .PHONY: build-plugin-go
 build-plugin-go: ## Build decoupled plugins
 	@echo "build plugin $(PLUGIN_ID)"

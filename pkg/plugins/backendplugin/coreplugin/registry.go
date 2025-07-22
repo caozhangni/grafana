@@ -38,6 +38,7 @@ import (
 	"github.com/grafana/grafana/pkg/tsdb/zipkin"
 )
 
+// IMPT: 内建的核心(built-in core)数据源插件的枚举
 const (
 	CloudWatch      = "cloudwatch"
 	CloudMonitoring = "stackdriver"
@@ -50,15 +51,16 @@ const (
 	Prometheus      = "prometheus"
 	Tempo           = "tempo"
 	TestData        = "grafana-testdata-datasource"
-	TestDataAlias   = "testdata"
-	PostgreSQL      = "grafana-postgresql-datasource"
-	MySQL           = "mysql"
-	MSSQL           = "mssql"
-	Grafana         = "grafana"
-	Pyroscope       = "grafana-pyroscope-datasource"
-	Parca           = "parca"
-	Zipkin          = "zipkin"
-	Jaeger          = "jaeger"
+	// NOTE: 注意这里是一个别名
+	TestDataAlias = "testdata"
+	PostgreSQL    = "grafana-postgresql-datasource"
+	MySQL         = "mysql"
+	MSSQL         = "mssql"
+	Grafana       = "grafana"
+	Pyroscope     = "grafana-pyroscope-datasource"
+	Parca         = "parca"
+	Zipkin        = "zipkin"
+	Jaeger        = "jaeger"
 )
 
 func init() {

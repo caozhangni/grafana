@@ -89,6 +89,7 @@ type MultiOrgAlertmanager struct {
 	logger         log.Logger
 
 	// clusterPeer represents the clustering peers of Alertmanagers between Grafana instances.
+	// INFO: 集群节点
 	peer         alertingNotify.ClusterPeer
 	settleCancel context.CancelFunc
 
@@ -177,6 +178,7 @@ func (moa *MultiOrgAlertmanager) setupClustering(cfg *setting.Cfg) error {
 	// increasing the probability of success when waiting for the cluster to settle.
 	const settleTimeout = alertingCluster.DefaultGossipInterval * 10
 	// Redis setup.
+	// INFO: redis设置
 	if cfg.UnifiedAlerting.HARedisAddr != "" {
 		redisPeer, err := newRedisPeer(redisConfig{
 			addr:             cfg.UnifiedAlerting.HARedisAddr,
@@ -204,7 +206,9 @@ func (moa *MultiOrgAlertmanager) setupClustering(cfg *setting.Cfg) error {
 		return nil
 	}
 	// Memberlist setup.
+	// INFO: memberlist设置
 	if len(cfg.UnifiedAlerting.HAPeers) > 0 {
+		// IMPT: 调用grafana fork的alertmanager集群创建方法
 		peer, err := alertingCluster.Create(
 			clusterLogger,
 			moa.metrics.Registerer,
@@ -225,6 +229,7 @@ func (moa *MultiOrgAlertmanager) setupClustering(cfg *setting.Cfg) error {
 			return fmt.Errorf("unable to initialize gossip mesh: %w", err)
 		}
 
+		// INFO: 加入集群
 		err = peer.Join(alertingCluster.DefaultReconnectInterval, cfg.UnifiedAlerting.HAReconnectTimeout)
 		if err != nil {
 			moa.logger.Error("Msg", "Unable to join gossip mesh while initializing cluster for high availability mode", "error", err)
@@ -233,6 +238,10 @@ func (moa *MultiOrgAlertmanager) setupClustering(cfg *setting.Cfg) error {
 		// Which should _never_ happen given we share the notification log via the database so the risk of double notification is very low.
 		var ctx context.Context
 		ctx, moa.settleCancel = context.WithTimeout(context.Background(), 30*time.Second)
+		// INFO: 等待集群稳定
+		// INFO: settle这个单词有稳定下来的意思
+		// INFO: 刚启动时，集群中的节点（peers）可能还在陆续加入或离开，节点数量会波动
+		// INFO: 只有当节点数量连续多次检测都没有变化时，才认为“集群已经稳定/收敛”（settled）
 		go peer.Settle(ctx, settleTimeout)
 		moa.peer = peer
 		return nil
@@ -240,6 +249,7 @@ func (moa *MultiOrgAlertmanager) setupClustering(cfg *setting.Cfg) error {
 	return nil
 }
 
+// IMPT: 持续读取组织信息并动态更新alertmanager
 func (moa *MultiOrgAlertmanager) Run(ctx context.Context) error {
 	moa.logger.Info("Starting MultiOrg Alertmanager")
 
@@ -256,6 +266,8 @@ func (moa *MultiOrgAlertmanager) Run(ctx context.Context) error {
 	}
 }
 
+// INFO: 从数据库获取组织的列表，并进行管理
+// INFO: 如新增的组织，需要新启动一个alertmanager
 func (moa *MultiOrgAlertmanager) LoadAndSyncAlertmanagersForOrgs(ctx context.Context) error {
 	moa.logger.Debug("Synchronizing Alertmanagers for orgs")
 	// First, load all the organizations from the database.
@@ -289,6 +301,7 @@ func (moa *MultiOrgAlertmanager) getLatestConfigs(ctx context.Context) (map[int6
 }
 
 // SyncAlertmanagersForOrgs syncs configuration of the Alertmanager required by each organization.
+// INFO: 根据组织的id来管理alertmanager，如新增alertmanager等
 func (moa *MultiOrgAlertmanager) SyncAlertmanagersForOrgs(ctx context.Context, orgIDs []int64) {
 	orgsFound := make(map[int64]struct{}, len(orgIDs))
 	dbConfigs, err := moa.getLatestConfigs(ctx)
@@ -334,6 +347,8 @@ func (moa *MultiOrgAlertmanager) SyncAlertmanagersForOrgs(ctx context.Context, o
 			continue
 		}
 
+		// IMPT: 应用新的配置到alertmanager
+		// IMPT: 如果过是新的alertmanager，会启动相关协程
 		err := alertmanager.ApplyConfig(ctx, dbConfig)
 		if err != nil {
 			moa.logger.Error("Failed to apply Alertmanager config for org", "org", orgID, "id", dbConfig.ID, "error", err)

@@ -80,6 +80,8 @@ type CoreGrafanaScope struct {
 	Dashboards DashboardActivityChannel
 }
 
+// INFO: 服务的构造方法
+// INFO: 会被依赖注入框架调用
 func ProvideService(plugCtxProvider *plugincontext.Provider, cfg *setting.Cfg, routeRegister routing.RouteRegister,
 	pluginStore pluginstore.Store, pluginClient plugins.Client, cacheService *localcache.CacheService,
 	dataSourceCache datasources.CacheService, sqlStore db.DB, secretsService secrets.Service,
@@ -411,6 +413,7 @@ func ProvideService(plugCtxProvider *plugincontext.Provider, cfg *setting.Cfg, r
 	}
 
 	g.RouteRegister.Group("/api/live", func(group routing.RouteRegister) {
+		// IMPT: 注册websocket路由
 		group.Get("/ws", g.websocketHandler)
 	}, middleware.ReqSignedIn, requestmeta.SetSLOGroup(requestmeta.SLOGroupNone))
 

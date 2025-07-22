@@ -14,7 +14,12 @@ import (
 )
 
 // The following variables cannot be constants, since they can be overridden through the -X link flag
-var version = "9.2.0"
+// INFO: 如下的变量不能是常量，因为编译的时候它们可以通过-X标志被重写
+// var version = "9.2.0"
+// NOTE: 这里我直接修改了版本号(最近的版本号需要从package.json文件中的version字段获取)
+// NOTE: 因为在debug的时候，grafana没有提供一种方式可以覆盖这个变量
+// NOTE: 一些逻辑会检查版本号，比如插件的版本兼容逻辑，所以也是无奈之举
+var version = "12.1.0-pre"
 var commit = gcli.DefaultCommitValue
 var enterpriseCommit = gcli.DefaultCommitValue
 var buildBranch = "main"

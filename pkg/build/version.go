@@ -9,11 +9,14 @@ import (
 	"time"
 )
 
+// INFO: 前端package.json文件的结构体
+// IMPT: 注意这里只定义了版本字段
 type PackageJSON struct {
 	Version string `json:"version"`
 }
 
 // Opens the package.json file in the provided directory and returns a struct that represents its contents
+// INFO: 打开package.json文件并返回一个PackageJSON结构体
 func OpenPackageJSON(dir string) (PackageJSON, error) {
 	reader, err := os.Open(filepath.Clean(dir + "/package.json"))
 	if err != nil {

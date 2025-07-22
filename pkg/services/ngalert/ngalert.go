@@ -55,6 +55,8 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 )
 
+// INFO: 提供给依赖注入框架
+// INFO: 会被依赖注入框架注册为一个BackgroundService
 func ProvideService(
 	cfg *setting.Cfg,
 	featureToggles featuremgmt.FeatureToggles,
@@ -567,11 +569,15 @@ func subscribeToFolderChanges(logger log.Logger, bus bus.Bus, dbStore api.RuleSt
 }
 
 // Run starts the scheduler and Alertmanager.
+// INFO: 实现的BackgroundService接口
+// IMPT: 注意正常关闭的时候，ctx会被取消，其他协程会收到取消信号
 func (ng *AlertNG) Run(ctx context.Context) error {
 	ng.Log.Debug("Starting", "execute_alerts", ng.Cfg.UnifiedAlerting.ExecuteAlerts)
 
+	// INFO: subCtx在children.Wait()遇到错误时会被取消
 	children, subCtx := errgroup.WithContext(ctx)
 
+	// INFO: 启动一个协程来运行MultiOrgAlertmanager
 	children.Go(func() error {
 		return ng.MultiOrgAlertmanager.Run(subCtx)
 	})
@@ -598,6 +604,8 @@ func (ng *AlertNG) Run(ctx context.Context) error {
 			return ng.stateManager.Run(subCtx)
 		})
 	}
+	// INFO: 所有协程正常执行完毕，则返回nil
+	// IMPT: 如果有一个协程执行失败，先取消subCtx(这个时候其他正常的协程会收到取消信号)，然后等待其他正常的协程执行完毕，最后返回第一个错误
 	return children.Wait()
 }
 

@@ -39,6 +39,7 @@ func RunCmdCLI(c *cli.Context) error {
 }
 
 // RunCmd runs the build command and returns the exit code
+// INFO: 运行构建命令并返回退出代码
 func RunCmd() int {
 	opts := BuildOptsFromFlags()
 
@@ -68,6 +69,7 @@ func RunCmd() int {
 		return 1
 	}
 
+	// IMPT: 解析命令行参数
 	for _, cmd := range flag.Args() {
 		switch cmd {
 		case "setup":

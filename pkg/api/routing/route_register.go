@@ -8,8 +8,13 @@ import (
 	"github.com/grafana/grafana/pkg/web"
 )
 
+// INFO: 定义了底层路由器的基本接口
 type Router interface {
 	Handle(method, pattern string, handlers []web.Handler)
+	// GET requests have to be added to macaron routing using Get()
+	// Otherwise HEAD requests will not be allowed.
+	// https://github.com/go-macaron/macaron/blob/a325110f8b392bce3e5cdeb8c44bf98078ada3be/router.go#L198
+	// INFO: 这里有一个单独的Get方法是因为macaron框架的限制
 	Get(pattern string, handlers ...web.Handler)
 }
 
@@ -46,6 +51,7 @@ type RouteRegister interface {
 
 	// Register iterates over all routes added to the RouteRegister
 	// and add them to the `Router` pass as an parameter.
+	// INFO: 这里会将路由注册器中的所有路由注册到router参数中
 	Register(Router, ...RegisterNamedMiddleware)
 
 	// Reset resets the route register.
@@ -54,11 +60,14 @@ type RouteRegister interface {
 
 type RegisterNamedMiddleware func(name string) web.Handler
 
+// IMPT: 注意grafana中这种带Provide前缀的基本都是给依赖注入用的
 func ProvideRegister() *RouteRegisterImpl {
+	// INFO: 比如这里直接传了一个特定的中间件
 	return NewRouteRegister(middleware.ProvideRouteOperationName)
 }
 
 // NewRouteRegister creates a new RouteRegister with all middlewares sent as params
+// IMPT: 这里才是真正的构造方法,可以正常使用，也可以给单元测试使用(可以传特定的中间件)
 func NewRouteRegister(namedMiddlewares ...RegisterNamedMiddleware) *RouteRegisterImpl {
 	return &RouteRegisterImpl{
 		prefix:           "",
@@ -68,12 +77,14 @@ func NewRouteRegister(namedMiddlewares ...RegisterNamedMiddleware) *RouteRegiste
 	}
 }
 
+// INFO: 表示一个具体的路由
 type route struct {
 	method   string
 	pattern  string
 	handlers []web.Handler
 }
 
+// INFO: 路由注册器的实现
 type RouteRegisterImpl struct {
 	prefix           string
 	subfixHandlers   []web.Handler
@@ -120,7 +131,7 @@ func (rr *RouteRegisterImpl) Group(pattern string, fn func(rr RouteRegister), ha
 	rr.groups = append(rr.groups, group)
 }
 
-// INFO: 这里会将路由注册到router参数中
+// INFO: 这里会将路由注册器中的所有路由注册到router参数中
 func (rr *RouteRegisterImpl) Register(router Router, namedMiddlewares ...RegisterNamedMiddleware) {
 	for _, r := range rr.routes {
 		// Add global named middlewares
@@ -131,6 +142,7 @@ func (rr *RouteRegisterImpl) Register(router Router, namedMiddlewares ...Registe
 		// GET requests have to be added to macaron routing using Get()
 		// Otherwise HEAD requests will not be allowed.
 		// https://github.com/go-macaron/macaron/blob/a325110f8b392bce3e5cdeb8c44bf98078ada3be/router.go#L198
+		// INFO: 这里处理单独的GET方法的原因是macaron框架的限制，否则HEAD请求不被允许
 		if r.method == http.MethodGet {
 			router.Get(r.pattern, r.handlers...)
 		} else {
@@ -139,6 +151,7 @@ func (rr *RouteRegisterImpl) Register(router Router, namedMiddlewares ...Registe
 	}
 
 	for _, g := range rr.groups {
+		// INFO: 这里这个递归调用，注册所有路由组下的路由
 		g.Register(router, namedMiddlewares...)
 	}
 }

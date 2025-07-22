@@ -57,9 +57,12 @@ func newClientConfig(executablePath string, args []string, env []string, skipHos
 	versionedPlugins map[int]goplugin.PluginSet) *goplugin.ClientConfig {
 	// We can ignore gosec G201 here, since the dynamic part of executablePath comes from the plugin definition
 	// nolint:gosec
+	// INFO: 根据可执行文件的路径和参数来创建一个Command对象
 	cmd := exec.Command(executablePath, args...)
 	cmd.Env = env
 
+	// NOTE: 这里使用的是go-plugin插件系统
+	// INFO: 创建一个go-plugin的客户端配置对象并返回
 	return &goplugin.ClientConfig{
 		Cmd:              cmd,
 		HandshakeConfig:  handshake,

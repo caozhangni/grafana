@@ -128,11 +128,12 @@ type BackgroundServiceRegistry struct {
 	Services []registry.BackgroundService
 }
 
+// INFO: 构造方法
 func NewBackgroundServiceRegistry(services ...registry.BackgroundService) *BackgroundServiceRegistry {
 	return &BackgroundServiceRegistry{services}
 }
 
-// INFO: 获取后台服务
+// INFO: 获取所以后台服务
 func (r *BackgroundServiceRegistry) GetServices() []registry.BackgroundService {
 	return r.Services
 }

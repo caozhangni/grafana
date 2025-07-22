@@ -34,6 +34,7 @@ func fileHasString(path string, s string) bool {
 	return strings.Contains(string(f), s)
 }
 
+// INFO: 查找插件的 plugin.json 文件(是在前端插件目录下)
 func findPluginJSONDir(pluginID string) (string, error) {
 	pluginJSONMatches, err := filepath.Glob("../../public/app/plugins/datasource/*/plugin.json")
 	if err != nil {
@@ -91,6 +92,7 @@ func buildPlugin(rootDir, pluginJSONDir string) {
 	build.BuildAll()
 }
 
+// INFO: 构建插件
 func BuildPlugin(pluginID string) error {
 	rootDir, err := findRootDir(pluginID)
 	if err != nil {

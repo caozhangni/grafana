@@ -7,7 +7,12 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/pkg/cmd/grafana/",
-      "env": {},
+      "env": {
+        // 有时需要下载一些插件，所以这里设置了代理
+        "https_proxy": "http://127.0.0.1:7890",
+        "http_proxy": "http://127.0.0.1:7890",
+        "all_proxy": "socks5://127.0.0.1:7890"
+      },
       "cwd": "${workspaceFolder}",
       "args": ["server", "--homepath", "${workspaceFolder}", "--packaging", "dev", "cfg:app_mode=development"]
     },

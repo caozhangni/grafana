@@ -34,6 +34,7 @@ func extractPluginSettings(sections []*ini.Section) PluginSettings {
 }
 
 var (
+	// NOTE: 如下是默认安装的插件，在grafana启动的时候会从远程插件仓库下载安装
 	defaultPreinstallPlugins = map[string]InstallPlugin{
 		// Default preinstalled plugins
 		"grafana-lokiexplore-app":      {ID: "grafana-lokiexplore-app"},

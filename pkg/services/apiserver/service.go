@@ -195,7 +195,7 @@ func ProvideService(
 			}
 
 			resp := responsewriter.WrapForHTTP1Or2(c.Resp)
-			// INFO: 这里是k8s的apiserver的handler
+			// IMPT: 这里是k8s的apiserver的handler
 			s.handler.ServeHTTP(resp, req)
 		}
 		k8sRoute.Any("/", middleware.ReqSignedIn, handler)
