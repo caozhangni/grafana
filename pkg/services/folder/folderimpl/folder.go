@@ -124,6 +124,7 @@ func ProvideService(
 			userService,
 			resourceClient,
 			sorter,
+			features,
 		)
 
 		// INFO: 使用统一存储
@@ -143,6 +144,7 @@ func ProvideService(
 			userService,
 			resourceClient,
 			sorter,
+			features,
 		)
 		srv.dashboardK8sClient = dashHandler
 	}
