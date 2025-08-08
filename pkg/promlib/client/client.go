@@ -40,6 +40,7 @@ func (c *Client) QueryRange(ctx context.Context, q *models.Query) (*http.Respons
 		"query": q.Expr,
 		"start": formatTime(tr.Start),
 		"end":   formatTime(tr.End),
+		// INFO: 实际查询的step参数
 		"step":  strconv.FormatFloat(tr.Step.Seconds(), 'f', -1, 64),
 	}
 	if c.queryTimeout != "" {
