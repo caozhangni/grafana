@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/grafana/grafana/pkg/services/featuremgmt"
 	"github.com/urfave/cli/v2"
 
 	"github.com/grafana/grafana/pkg/api"
@@ -94,6 +95,11 @@ func RunTargetServer(opts standalone.BuildInfo, cli *cli.Context) error {
 	}
 
 	metrics.SetBuildInformation(metrics.ProvideRegisterer(), opts.Version, opts.Commit, opts.BuildBranch, getBuildstamp(opts))
+
+	// Initialize the OpenFeature client with the configuration
+	if err := featuremgmt.InitOpenFeatureWithCfg(cfg); err != nil {
+		return err
+	}
 
 	// INFO: 通过配置对象初始化模块服务(但是不启动)
 	// INFO: InitializeModuleServer方法是wire生成的
