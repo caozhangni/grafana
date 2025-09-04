@@ -1,6 +1,7 @@
 package schemaversion
 
 import (
+	"context"
 	"strconv"
 )
 
@@ -165,7 +166,7 @@ import (
 //                     {
 //                         "matcher": { "id": "byName", "options": "Hidden" },
 //                         "properties": [
-//                             { "id": "custom.hidden", "value": true }
+//                             { "id": "custom.hideFrom.viz", "value": true }
 //                         ]
 //                     }
 //                 ]
@@ -199,7 +200,7 @@ func V24(panelProvider PanelPluginInfoProvider) SchemaVersionMigrationFunc {
 	return migrator.migrate
 }
 
-func (m *v24Migrator) migrate(dashboard map[string]interface{}) error {
+func (m *v24Migrator) migrate(_ context.Context, dashboard map[string]interface{}) error {
 	dashboard["schemaVersion"] = 24
 
 	panels, ok := dashboard["panels"].([]interface{})
@@ -227,7 +228,7 @@ func (m *v24Migrator) migrate(dashboard map[string]interface{}) error {
 		// Find if the panel plugin exists
 		tablePanelPlugin := m.panelProvider.GetPanelPlugin("table")
 		if tablePanelPlugin.ID == "" {
-			return NewMigrationError("table panel plugin not found when migrating dashboard to schema version 24", 24, LATEST_VERSION)
+			return NewMigrationError("table panel plugin not found when migrating dashboard to schema version 24", 24, LATEST_VERSION, "V24")
 		}
 		panelMap["pluginVersion"] = tablePanelPlugin.Version
 		err := tablePanelChangedHandler(panelMap)
@@ -436,7 +437,7 @@ func migrateTableStyleToOverride(style map[string]interface{}) map[string]interf
 	// Handle hidden type
 	if styleType, ok := style["type"].(string); ok && styleType == "hidden" {
 		properties = append(properties, map[string]interface{}{
-			"id":    "custom.hidden",
+			"id":    "custom.hideFrom.viz",
 			"value": true,
 		})
 	}
@@ -510,27 +511,30 @@ func migrateDefaults(prevDefaults map[string]interface{}) map[string]interface{}
 				"type": "auto",
 			},
 			"inspect": false,
+			"footer": map[string]interface{}{
+				"reducers": []interface{}{},
+			},
 		},
 		"mappings": []interface{}{},
 	}
 
-	// Only add default thresholds if we have prevDefaults (meaning this is a table panel being migrated)
-	// and no specific thresholds exist in prevDefaults
+	// Add default thresholds for all table panels to match frontend behavior
+	// The frontend applies the table panel's default field config which includes thresholds
 	hasThresholds := false
 	if prevDefaults != nil {
 		if thresholds, ok := prevDefaults["thresholds"].([]interface{}); ok && len(thresholds) > 0 {
 			hasThresholds = true
 		}
+	}
 
-		// Only add default thresholds for table panels (when prevDefaults exists) without existing thresholds
-		if !hasThresholds {
-			defaults["thresholds"] = map[string]interface{}{
-				"mode": "absolute",
-				"steps": []interface{}{
-					map[string]interface{}{"color": "green"},
-					map[string]interface{}{"color": "red", "value": 80},
-				},
-			}
+	// Add default thresholds for all table panels (when prevDefaults exists) without existing thresholds
+	if !hasThresholds {
+		defaults["thresholds"] = map[string]interface{}{
+			"mode": "absolute",
+			"steps": []interface{}{
+				map[string]interface{}{"color": "green"},
+				map[string]interface{}{"color": "red", "value": 80},
+			},
 		}
 	}
 

@@ -47,6 +47,9 @@ func TestV24(t *testing.T) {
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
 									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
+									},
 									"inspect": false,
 								},
 								"mappings": []interface{}{},
@@ -155,6 +158,9 @@ func TestV24(t *testing.T) {
 									"cellOptions": map[string]interface{}{
 										"type": "color-background",
 									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
+									},
 									"inspect": false,
 								},
 								"mappings": []interface{}{},
@@ -216,7 +222,7 @@ func TestV24(t *testing.T) {
 										"options": "Hidden",
 									},
 									"properties": []interface{}{
-										map[string]interface{}{"id": "custom.hidden", "value": true},
+										map[string]interface{}{"id": "custom.hideFrom.viz", "value": true},
 									},
 								},
 							},
@@ -286,6 +292,9 @@ func TestV24(t *testing.T) {
 									"align": "auto",
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
+									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
 									},
 									"inspect": false,
 								},
@@ -364,6 +373,9 @@ func TestV24(t *testing.T) {
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
 									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
+									},
 									"inspect": false,
 								},
 								"mappings": []interface{}{},
@@ -440,6 +452,9 @@ func TestV24(t *testing.T) {
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
 									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
+									},
 									"inspect": false,
 								},
 								"mappings": []interface{}{},
@@ -514,6 +529,9 @@ func TestV24(t *testing.T) {
 									"align": "",
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
+									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
 									},
 									"inspect": false,
 								},
@@ -600,6 +618,9 @@ func TestV24(t *testing.T) {
 									"align": "auto",
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
+									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
 									},
 									"inspect": false,
 								},
@@ -782,6 +803,9 @@ func TestV24(t *testing.T) {
 									"align": "auto",
 									"cellOptions": map[string]interface{}{
 										"type": "auto",
+									},
+									"footer": map[string]interface{}{
+										"reducers": []interface{}{},
 									},
 									"inspect": false,
 								},

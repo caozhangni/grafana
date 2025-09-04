@@ -2,14 +2,16 @@ package schemaversion
 
 import (
 	"strconv"
+
+	"golang.org/x/net/context"
 )
 
 const (
-	MIN_VERSION    = 19
+	MIN_VERSION    = 13
 	LATEST_VERSION = 41
 )
 
-type SchemaVersionMigrationFunc func(map[string]interface{}) error
+type SchemaVersionMigrationFunc func(context.Context, map[string]interface{}) error
 
 type DataSourceInfo struct {
 	Default    bool
@@ -21,7 +23,9 @@ type DataSourceInfo struct {
 }
 
 type DataSourceInfoProvider interface {
-	GetDataSourceInfo() []DataSourceInfo
+	// GetDataSourceInfo returns a list of all data sources with their info
+	// The context must have the namespace in it
+	GetDataSourceInfo(ctx context.Context) []DataSourceInfo
 }
 
 type PanelPluginInfo struct {
@@ -38,6 +42,12 @@ type PanelPluginInfoProvider interface {
 
 func GetMigrations(dsInfoProvider DataSourceInfoProvider, panelProvider PanelPluginInfoProvider) map[int]SchemaVersionMigrationFunc {
 	return map[int]SchemaVersionMigrationFunc{
+		14: V14,
+		15: V15,
+		16: V16,
+		17: V17,
+		18: V18,
+		19: V19,
 		20: V20,
 		21: V21,
 		22: V22,

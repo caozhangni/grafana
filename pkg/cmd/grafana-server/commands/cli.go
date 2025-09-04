@@ -129,6 +129,7 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 	// INFO: 初始化server对象
 	// INFO: Intialize方法是wire生成的
 	s, err := server.Initialize(
+		cli.Context,
 		cfg,
 		server.Options{
 			PidFile:     PidFile,
@@ -142,9 +143,8 @@ func RunServer(opts standalone.BuildInfo, cli *cli.Context) error {
 		return err
 	}
 
-	ctx := context.Background()
 	// INFO: 启动协程监听系统信号
-	go listenToSystemSignals(ctx, s)
+	go listenToSystemSignals(cli.Context, s)
 	// INFO: 启动服务
 	return s.Run()
 }

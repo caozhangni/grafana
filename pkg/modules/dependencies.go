@@ -14,6 +14,7 @@ const (
 	ZanzanaServer           string = "zanzana-server"
 	InstrumentationServer   string = "instrumentation-server"
 	FrontendServer          string = "frontend-server"
+	OperatorServer          string = "operator"
 )
 
 // INFO: 定义模块之间的依赖关系
@@ -27,4 +28,5 @@ var dependencyMap = map[string][]string{
 	Core:                    {},
 	All:                     {Core},
 	FrontendServer:          {},
+	OperatorServer:          {InstrumentationServer},
 }

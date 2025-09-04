@@ -216,6 +216,10 @@ type Cfg struct {
 
 	PluginUpdateStrategy string
 
+	// Plugin API restrictions - maps API name to list of plugin IDs/patterns
+	PluginRestrictedAPIsAllowList map[string][]string
+	PluginRestrictedAPIsBlockList map[string][]string
+
 	// Panels
 	DisableSanitizeHtml bool
 
@@ -442,6 +446,9 @@ type Cfg struct {
 
 	// SQLExpressionOutputCellLimit is the maximum number of cells (rows × columns) that can be outputted by a SQL expression.
 	SQLExpressionOutputCellLimit int64
+
+	// SQLExpressionQueryLengthLimit is the maximum length of a SQL query that can be used in a SQL expression.
+	SQLExpressionQueryLengthLimit int64
 
 	// SQLExpressionTimeoutSeconds is the duration a SQL expression will run before timing out
 	SQLExpressionTimeout time.Duration
@@ -832,6 +839,7 @@ func (cfg *Cfg) readExpressionsSettings() {
 	cfg.SQLExpressionCellLimit = expressions.Key("sql_expression_cell_limit").MustInt64(100000)
 	cfg.SQLExpressionOutputCellLimit = expressions.Key("sql_expression_output_cell_limit").MustInt64(100000)
 	cfg.SQLExpressionTimeout = expressions.Key("sql_expression_timeout").MustDuration(time.Second * 10)
+	cfg.SQLExpressionQueryLengthLimit = expressions.Key("sql_expression_query_length_limit").MustInt64(10000)
 }
 
 type AnnotationCleanupSettings struct {
@@ -1059,6 +1067,10 @@ func NewCfg() *Cfg {
 		Raw:    ini.Empty(),
 		Azure:  &azsettings.AzureSettings{},
 
+		// Initialize plugin API restriction maps
+		PluginRestrictedAPIsAllowList: make(map[string][]string),
+		PluginRestrictedAPIsBlockList: make(map[string][]string),
+
 		// Avoid nil pointer
 		IsFeatureToggleEnabled: func(_ string) bool {
 			return false
@@ -1093,6 +1105,12 @@ func NewCfgFromBytes(bytes []byte) (*Cfg, error) {
 	}
 
 	return NewCfgFromINIFile(parsedFile)
+}
+
+// prevents a log line from being printed when the static root path is not found, useful for apiservers that have no frontend
+func NewCfgFromBytesWithoutJSValidation(bytes []byte) (*Cfg, error) {
+	skipStaticRootValidation = true
+	return NewCfgFromBytes(bytes)
 }
 
 // NewCfgFromINIFile specialized function to create a new Cfg from an ini.File.

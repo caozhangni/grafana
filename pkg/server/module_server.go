@@ -14,6 +14,7 @@ import (
 	"github.com/grafana/dskit/ring"
 	ringclient "github.com/grafana/dskit/ring/client"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/urfave/cli/v2"
 
 	"github.com/grafana/dskit/services"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/infra/tracing"
 	"github.com/grafana/grafana/pkg/modules"
+	"github.com/grafana/grafana/pkg/services/apiserver/standalone"
 	"github.com/grafana/grafana/pkg/services/authz"
 	"github.com/grafana/grafana/pkg/services/featuremgmt"
 	"github.com/grafana/grafana/pkg/services/frontend"
@@ -198,18 +200,47 @@ func (s *ModuleServer) Run() error {
 
 	// INFO: 注册 zanzana-server 模块
 	m.RegisterModule(modules.ZanzanaServer, func() (services.Service, error) {
-		return authz.ProvideZanzanaService(s.cfg, s.features)
+		return authz.ProvideZanzanaService(s.cfg, s.features, s.registerer)
 	})
 
 	m.RegisterModule(modules.FrontendServer, func() (services.Service, error) {
 		return frontend.ProvideFrontendService(s.cfg, s.features, s.promGatherer, s.registerer, s.license)
 	})
 
+	m.RegisterModule(modules.OperatorServer, s.initOperatorServer)
+
 	// INFO: 注册 all 模块
 	m.RegisterModule(modules.All, nil)
 
 	// INFO: 阻塞直到所有服务都退出
 	return m.Run(s.context)
+}
+
+func (s *ModuleServer) initOperatorServer() (services.Service, error) {
+	operatorName := os.Getenv("GF_OPERATOR_NAME")
+	if operatorName == "" {
+		s.log.Debug("GF_OPERATOR_NAME environment variable empty or unset, can't start operator")
+		return nil, nil
+	}
+
+	for _, op := range GetRegisteredOperators() {
+		if op.Name == operatorName {
+			return services.NewBasicService(
+				nil,
+				func(ctx context.Context) error {
+					context := cli.NewContext(&cli.App{}, nil, nil)
+					return op.RunFunc(standalone.BuildInfo{
+						Version:     s.version,
+						Commit:      s.commit,
+						BuildBranch: s.buildBranch,
+					}, context, s.cfg)
+				},
+				nil,
+			).WithName("operator"), nil
+		}
+	}
+
+	return nil, fmt.Errorf("unknown operator: %s. available operators: %v", operatorName, GetRegisteredOperatorNames())
 }
 
 // Shutdown initiates Grafana graceful shutdown. This shuts down all
